@@ -14,9 +14,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 
 /**
- * @author Fuzhengwei bugstack.cn @小傅哥
  * @description 结束节点
- * @create 2024-12-14 14:31
  */
 @Slf4j
 @Service
@@ -29,12 +27,15 @@ public class EndNode extends AbstractGroupBuyMarketSupport<MarketProductEntity, 
         GroupBuyActivityDiscountVO groupBuyActivityDiscountVO = dynamicContext.getGroupBuyActivityDiscountVO();
         SkuVO skuVO = dynamicContext.getSkuVO();
 
+        // 折扣价格
+        BigDecimal deductionPrice = dynamicContext.getDeductionPrice();
+
         // 返回空结果
         return TrialBalanceEntity.builder()
                   .goodsId(skuVO.getGoodsId())
                   .goodsName(skuVO.getGoodsName())
                   .originalPrice(skuVO.getOriginalPrice())
-                  .deductionPrice(new BigDecimal("0.00"))
+                  .deductionPrice(deductionPrice)
                   .targetCount(groupBuyActivityDiscountVO.getTarget())
                   .startTime(groupBuyActivityDiscountVO.getStartTime())
                   .endTime(groupBuyActivityDiscountVO.getEndTime())
