@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 
 /**
- * @description 结束节点
+ * @description 正常结束节点
  */
 @Slf4j
 @Service
@@ -24,7 +24,10 @@ public class EndNode extends AbstractGroupBuyMarketSupport<MarketProductEntity, 
     public TrialBalanceEntity doApply(MarketProductEntity requestParameter, DefaultActivityStrategyFactory.DynamicContext dynamicContext) throws Exception {
         log.info("拼团商品查询试算服务-EndNode userId:{} requestParameter:{}", requestParameter.getUserId(), JSON.toJSONString(requestParameter));
 
+        // 拼团活动配置
         GroupBuyActivityDiscountVO groupBuyActivityDiscountVO = dynamicContext.getGroupBuyActivityDiscountVO();
+
+        // 商品信息
         SkuVO skuVO = dynamicContext.getSkuVO();
 
         // 折扣价格
@@ -32,16 +35,16 @@ public class EndNode extends AbstractGroupBuyMarketSupport<MarketProductEntity, 
 
         // 返回空结果
         return TrialBalanceEntity.builder()
-                  .goodsId(skuVO.getGoodsId())
-                  .goodsName(skuVO.getGoodsName())
-                  .originalPrice(skuVO.getOriginalPrice())
-                  .deductionPrice(deductionPrice)
-                  .targetCount(groupBuyActivityDiscountVO.getTarget())
-                  .startTime(groupBuyActivityDiscountVO.getStartTime())
-                  .endTime(groupBuyActivityDiscountVO.getEndTime())
-                  .isVisible(false)
-                  .isEnable(false)
-                  .build();
+                .goodsId(skuVO.getGoodsId())
+                .goodsName(skuVO.getGoodsName())
+                .originalPrice(skuVO.getOriginalPrice())
+                .deductionPrice(deductionPrice)
+                .targetCount(groupBuyActivityDiscountVO.getTarget())
+                .startTime(groupBuyActivityDiscountVO.getStartTime())
+                .endTime(groupBuyActivityDiscountVO.getEndTime())
+                .isVisible(dynamicContext.isVisible())
+                .isEnable(dynamicContext.isEnable())
+                .build();
     }
 
     @Override

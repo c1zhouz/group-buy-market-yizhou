@@ -26,7 +26,7 @@ public class IIndexGroupBuyMarketServiceTest {
     @Test
     public void test_indexMarketTrial() throws Exception {
         MarketProductEntity marketProductEntity = new MarketProductEntity();
-        marketProductEntity.setUserId("xiaofuge");
+        marketProductEntity.setUserId("xaiofuge");
         marketProductEntity.setSource("s01");
         marketProductEntity.setChannel("c01");
         marketProductEntity.setGoodsId("9890001");
