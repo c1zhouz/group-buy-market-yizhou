@@ -14,6 +14,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class MarketProductEntity {
 
+    /** 活动ID */
+    private Long activityId;
     /** 用户ID */
     private String userId;
     /** 商品ID */
