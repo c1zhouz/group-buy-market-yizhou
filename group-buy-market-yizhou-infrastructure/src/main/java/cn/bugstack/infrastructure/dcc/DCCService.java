@@ -1,6 +1,7 @@
 package cn.bugstack.infrastructure.dcc;
 
 import cn.bugstack.types.annotations.DCCValue;
+import lombok.Data;
 import org.springframework.stereotype.Service;
 
 /**
