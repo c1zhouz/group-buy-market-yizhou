@@ -1,0 +1,1 @@
+package cn.bugstack.domain.tag.adapter.repository;
