@@ -53,7 +53,7 @@
         </div>
     </div>
 </div>
-<script src="js/index.js"></script>
+<script src="js/index.js?v=20260401"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // 根据测试诉求，设置基础地址
@@ -68,6 +68,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 定义交易单号，如果交易单号不为空，则当前用户已参与拼团交易
     let outTradeNo = "";
+    let currentPayMode = "group";
+    let directOutTradeNo = "";
 
     // 请求接口数据
     fetch(baseUrl + '/api/v1/gbm/index/query_group_buy_market_config', {
@@ -107,8 +109,8 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             teamList.forEach(team => {
                 const remaining = team.targetCount - team.lockCount;
-                // 判断当前用户ID是否为登录用户ID
-                if(userId == team.userId){
+                // 仅复用当前用户且仍在有效期内的拼团交易单
+                if(userId == team.userId && team.validTimeCountdown !== '已结束'){
                     outTradeNo = team.outTradeNo;
                 }
 
@@ -137,11 +139,12 @@ document.addEventListener('DOMContentLoaded', function() {
         groupBuyBtn.textContent = `开团购买(￥${goods.payPrice.toFixed(0)})`;
         groupBuyBtn.dataset.price = goods.payPrice;
 
-        // 绑定支付事件[拼团购买]
+        // 绑定支付事件（参与拼团/开团购买）
         document.querySelectorAll('.group-btn, .group-buy').forEach(btn => {
             btn.addEventListener('click', function() {
+                currentPayMode = "group";
 
-                // 如果有值，则直接展示支付按钮
+                // 仅拼团场景允许复用已有未结算 outTradeNo
                 if(outTradeNo) {
                     // 显示支付弹窗
                     document.getElementById('paymentAmount').textContent =
@@ -204,9 +207,22 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
 
-        // 启动倒计时
+        // 绑定支付事件（单独购买：不参与拼团，不走拼团锁单/结算）
+        buyAloneBtn.addEventListener('click', function() {
+            currentPayMode = "direct";
+            directOutTradeNo = `D${generateRandomNumber(11)}`;
+            showPaymentModal(this.dataset.price, directOutTradeNo);
+        });
+
+        // 启动倒计时，仅对 HH:mm:ss 生效，其他值统一显示已结束
         document.querySelectorAll('.countdown').forEach(el => {
-            new Countdown(el, el.textContent);
+            const timeText = (el.textContent || '').trim();
+            const isHms = /^\d{2}:\d{2}:\d{2}$/.test(timeText);
+            if (!isHms || timeText === '00:00:00') {
+                el.textContent = '已结束';
+                return;
+            }
+            new Countdown(el, timeText);
         });
 
     });
@@ -217,26 +233,11 @@ document.addEventListener('DOMContentLoaded', function() {
   const cancelPayment = document.getElementById("cancelPayment")
   const completePayment = document.getElementById("completePayment")
 
-  // 获取所有的按钮
-  const buttons = document.querySelectorAll(".buy-alone")
-
-  // 为每个按钮添加点击事件
-  buttons.forEach((button) => {
-    button.addEventListener("click", function () {
-      var userId = getCookie("username");
-      if (!userId) {
-          window.location.href = "login.html"; // 跳转到登录页
-          return;
-      }
-
-      const price = this.getAttribute("data-price")
-      showPaymentModal(price)
-    })
-  })
 
   // 显示支付弹窗
-  function showPaymentModal(price) {
+  function showPaymentModal(price, tradeNo) {
     paymentAmount.textContent = `支付金额：￥${price}`
+    document.getElementById('outTradeNo').textContent = tradeNo || ''
     modal.style.display = "block"
   }
 
@@ -250,6 +251,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // 支付完成
   completePayment.addEventListener("click", () => {
+    // 单独购买：独立下单，不参与拼团结算
+    if (currentPayMode === "direct") {
+        const postData = {
+            userId: userId,
+            outTradeNo: directOutTradeNo,
+            payAmount: paymentAmount.textContent.replace('支付金额：￥', ''),
+            outTradeTime: new Date()
+        };
+
+        fetch(baseUrl + '/api/v1/test/direct_buy_notify', {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json'
+            },
+            body: JSON.stringify(postData)
+        })
+        .then(response => response.text())
+        .then(() => {
+            alert('单独购买成功！已完成支付。');
+            directOutTradeNo = '';
+            hidePaymentModal();
+        })
+        .catch(error => {
+            console.error('单独购买请求失败:', error);
+            alert('单独购买请求失败，请检查网络连接');
+        });
+        return;
+    }
+
     // 生成符合要求的交易时间格式
     const formatTime = date => date.toISOString()
         .replace(/T/, ' ')

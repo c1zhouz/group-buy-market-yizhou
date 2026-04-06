@@ -44,11 +44,28 @@ class Countdown {
         this.element = element;
         this.remaining = this.parseTime(initialTime);
         this.timer = null;
+
+        // 非法时间或已结束场景，不启动倒计时，避免出现 NaN:NaN:NaN
+        if (!Number.isFinite(this.remaining) || this.remaining <= 0) {
+            this.element.textContent = '已结束';
+            return;
+        }
+
         this.start();
     }
 
     parseTime(timeString) {
-        const [hours, minutes, seconds] = timeString.split(':').map(Number);
+        if (!timeString || typeof timeString !== 'string') return NaN;
+
+        const normalized = timeString.trim();
+        if (normalized === '已结束') return 0;
+
+        const parts = normalized.split(':');
+        if (parts.length !== 3) return NaN;
+
+        const [hours, minutes, seconds] = parts.map(Number);
+        if (![hours, minutes, seconds].every(Number.isFinite)) return NaN;
+
         return hours * 3600 + minutes * 60 + seconds;
     }
 
@@ -60,9 +77,15 @@ class Countdown {
     }
 
     update() {
+        if (!Number.isFinite(this.remaining)) {
+            this.element.textContent = '已结束';
+            this.stop();
+            return;
+        }
+
         this.remaining--;
         if (this.remaining <= 0) {
-            this.element.textContent = '00:00:00';
+            this.element.textContent = '已结束';
             this.stop();
             return;
         }

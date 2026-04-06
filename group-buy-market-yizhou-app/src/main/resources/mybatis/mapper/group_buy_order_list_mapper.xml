@@ -86,10 +86,15 @@
 
     <select id="queryInProgressUserGroupBuyOrderDetailListByActivityId" parameterType="java.lang.Long"
             resultMap="dataMap">
-        select user_id, team_id, out_trade_no
-        from group_buy_order_list
-        where activity_id = #{activityId} and status in (0, 1)
-        group by team_id
+        select o.user_id, o.team_id, o.out_trade_no
+        from group_buy_order_list o
+                 inner join (
+            select team_id, max(id) as max_id
+            from group_buy_order_list
+            where activity_id = #{activityId} and status in (0, 1)
+            group by team_id
+        ) t on o.id = t.max_id
+        order by o.id desc
     </select>
 
 </mapper>
