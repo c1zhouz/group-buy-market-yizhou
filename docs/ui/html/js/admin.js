@@ -31,7 +31,11 @@ const adminState = {
 
 function resolveApiOrigin() {
   const host = window.location.hostname;
+  const port = window.location.port;
   const isLocalHost = host === "127.0.0.1" || host === "localhost";
+  if (isLocalHost && port === "8091") {
+    return window.location.origin;
+  }
   return isLocalHost ? "http://127.0.0.1:8091" : window.location.origin;
 }
 
@@ -1089,4 +1093,3 @@ function getCookie(name) {
 function clearCookie(name) {
   document.cookie = `${name}=; expires=${new Date(0).toUTCString()}; path=/`;
 }
-

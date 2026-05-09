@@ -9,32 +9,36 @@
         <result column="goods_id" property="goodsId"/>
         <result column="goods_name" property="goodsName"/>
         <result column="original_price" property="originalPrice"/>
+        <result column="stock" property="stock"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
 
     <select id="querySkuByGoodsId" parameterType="java.lang.String" resultMap="dataMap">
-        select source, channel, goods_id, goods_name, original_price
+        select source, channel, goods_id, goods_name, original_price, stock
         from sku
         where goods_id = #{goodsId}
     </select>
 
     <select id="querySkuList" resultMap="dataMap">
-        select source, channel, goods_id, goods_name, original_price
+        select source, channel, goods_id, goods_name, original_price, stock
         from sku
         order by id desc
         limit 100
     </select>
 
     <insert id="insertSku" parameterType="cn.bugstack.infrastructure.dao.po.Sku">
-        insert into sku(source, channel, goods_id, goods_name, original_price, create_time, update_time)
-        values(#{source}, #{channel}, #{goodsId}, #{goodsName}, #{originalPrice}, now(), now())
+        insert into sku(source, channel, goods_id, goods_name, original_price, stock, create_time, update_time)
+        values(#{source}, #{channel}, #{goodsId}, #{goodsName}, #{originalPrice}, #{stock}, now(), now())
     </insert>
 
     <update id="updateSkuByGoodsId" parameterType="cn.bugstack.infrastructure.dao.po.Sku">
         update sku
         set goods_name = #{goodsName},
             original_price = #{originalPrice},
+            <if test="stock != null">
+            stock = #{stock},
+            </if>
             update_time = now()
         where goods_id = #{goodsId}
     </update>

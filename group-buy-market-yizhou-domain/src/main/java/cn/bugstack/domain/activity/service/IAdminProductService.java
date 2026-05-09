@@ -12,9 +12,9 @@ public interface IAdminProductService {
 
     AdminProductListEntity queryProductList();
 
-    boolean createProduct(String goodsId, String goodsName, BigDecimal price, Long activityId);
+    boolean createProduct(String goodsId, String goodsName, BigDecimal price, Integer stock, Long activityId);
 
-    boolean updateProduct(String goodsId, String goodsName, BigDecimal price, Long activityId);
+    boolean updateProduct(String goodsId, String goodsName, BigDecimal price, Integer stock, Long activityId);
 
     boolean deleteProduct(String goodsId);
 

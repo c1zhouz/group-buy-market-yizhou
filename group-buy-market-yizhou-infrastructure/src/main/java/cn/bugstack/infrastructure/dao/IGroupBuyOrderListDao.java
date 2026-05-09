@@ -50,6 +50,8 @@ public interface IGroupBuyOrderListDao {
 
     Integer queryAdminOrderCountByStatus(@Param("status") Integer status);
 
+    List<Map<String, Object>> queryAdminOrderCountByStatusGroupByGoodsId(@Param("status") Integer status);
+
     BigDecimal queryAdminGMVByStatus(@Param("status") Integer status);
 
     List<Map<String, Object>> queryAdminChannelStats();

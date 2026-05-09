@@ -46,6 +46,7 @@ public class AdminController {
 
     private static final Logger logger = LoggerFactory.getLogger(AdminController.class);
     private static final String REMOVED_N_TIER_EXPR = "1.99";
+    private static final int DEFAULT_PRODUCT_STOCK = 100;
 
     @Resource
     private IGroupBuyOrderListDao groupBuyOrderListDao;
@@ -107,6 +108,7 @@ public class AdminController {
                     .data(data)
                     .build();
         } catch (Exception e) {
+            logger.error("查询后台商品列表失败", e);
             return Response.<Map<String, Object>>builder()
                     .code(ResponseCode.UN_ERROR.getCode())
                     .info(ResponseCode.UN_ERROR.getInfo())
@@ -527,6 +529,7 @@ public class AdminController {
             String goodsId = readText(safeRequestDTO.get("sku"));
             String goodsName = readText(safeRequestDTO.get("name"));
             String priceText = readText(safeRequestDTO.get("price"));
+            Integer stock = parseStock(safeRequestDTO.get("stock"), DEFAULT_PRODUCT_STOCK);
             Long activityId = parseActivityId(safeRequestDTO.get("activityId"));
 
             if (goodsId.isEmpty() || goodsName.isEmpty() || priceText.isEmpty()) {
@@ -544,8 +547,11 @@ public class AdminController {
             if (price.compareTo(BigDecimal.ZERO) < 0) {
                 return illegalBooleanResponse("售价不能为负数");
             }
+            if (null != stock && stock < 0) {
+                return illegalBooleanResponse("库存不能为负数");
+            }
 
-            boolean success = adminProductService.createProduct(goodsId, goodsName, price, activityId);
+            boolean success = adminProductService.createProduct(goodsId, goodsName, price, stock, activityId);
             if (!success && null != activityId) {
                 return Response.<Boolean>builder()
                         .code(ResponseCode.UN_ERROR.getCode())
@@ -587,6 +593,7 @@ public class AdminController {
             String safeGoodsId = readText(goodsId);
             String goodsName = readText(safeRequestDTO.get("name"));
             String priceText = readText(safeRequestDTO.get("price"));
+            Integer stock = parseStock(safeRequestDTO.get("stock"), null);
             if (safeGoodsId.isEmpty() || goodsName.isEmpty() || priceText.isEmpty()) {
                 return illegalBooleanResponse("商品ID、商品名称、售价不能为空");
             }
@@ -598,9 +605,12 @@ public class AdminController {
             if (price.compareTo(BigDecimal.ZERO) < 0) {
                 return illegalBooleanResponse("售价不能为负数");
             }
+            if (null != stock && stock < 0) {
+                return illegalBooleanResponse("库存不能为负数");
+            }
 
             Long activityId = parseActivityId(safeRequestDTO.get("activityId"));
-            boolean success = adminProductService.updateProduct(safeGoodsId, goodsName, price, activityId);
+            boolean success = adminProductService.updateProduct(safeGoodsId, goodsName, price, stock, activityId);
             if (!success && null != activityId) {
                 return Response.<Boolean>builder()
                         .code(ResponseCode.UN_ERROR.getCode())
@@ -1059,6 +1069,21 @@ public class AdminController {
             return value > 0 ? value : null;
         } catch (NumberFormatException ignore) {
             return null;
+        }
+    }
+
+    private Integer parseStock(Object stockValue, Integer defaultValue) {
+        if (null == stockValue) {
+            return defaultValue;
+        }
+        String text = String.valueOf(stockValue).trim();
+        if (text.isEmpty() || "null".equalsIgnoreCase(text)) {
+            return defaultValue;
+        }
+        try {
+            return Integer.parseInt(text);
+        } catch (NumberFormatException e) {
+            return -1;
         }
     }
 

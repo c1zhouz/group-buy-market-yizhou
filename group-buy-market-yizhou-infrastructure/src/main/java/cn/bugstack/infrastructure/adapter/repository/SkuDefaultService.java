@@ -59,7 +59,7 @@ public class SkuDefaultService {
             Sku dbSku = skuDao.querySkuByGoodsId(defaultSku.getGoodsId());
             if (null == dbSku) {
                 try {
-                    skuDao.insertSku(defaultSku);
+                    skuDao.insertSku(withDefaultStock(defaultSku));
                 } catch (DuplicateKeyException ignore) {
                     // 并发补齐场景下，唯一索引冲突可直接走后续查询
                 }
@@ -82,11 +82,21 @@ public class SkuDefaultService {
                     .goodsId(sku.getGoodsId())
                     .goodsName(sku.getGoodsName())
                     .originalPrice(sku.getOriginalPrice())
+                    .stock(null == sku.getStock() ? 100 : sku.getStock())
                     .build());
         }
         return result;
     }
 
+    private Sku withDefaultStock(Sku sku) {
+        return Sku.builder()
+                .source(sku.getSource())
+                .channel(sku.getChannel())
+                .goodsId(sku.getGoodsId())
+                .goodsName(sku.getGoodsName())
+                .originalPrice(sku.getOriginalPrice())
+                .stock(null == sku.getStock() ? 100 : sku.getStock())
+                .build();
+    }
 
 }
-

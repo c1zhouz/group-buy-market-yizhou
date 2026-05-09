@@ -136,7 +136,7 @@ public class AdminControllerTest {
         Assertions.assertEquals(ResponseCode.ILLEGAL_PARAMETER.getCode(), response.getCode());
         Assertions.assertEquals("商品名称、SKU、售价不能为空", response.getInfo());
         Assertions.assertEquals(Boolean.FALSE, response.getData());
-        Mockito.verify(adminProductService, Mockito.never()).createProduct(Mockito.anyString(), Mockito.anyString(), Mockito.any(BigDecimal.class), Mockito.any());
+        Mockito.verify(adminProductService, Mockito.never()).createProduct(Mockito.anyString(), Mockito.anyString(), Mockito.any(BigDecimal.class), Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -156,7 +156,28 @@ public class AdminControllerTest {
         Assertions.assertEquals(ResponseCode.ILLEGAL_PARAMETER.getCode(), response.getCode());
         Assertions.assertEquals("售价格式不正确", response.getInfo());
         Assertions.assertEquals(Boolean.FALSE, response.getData());
-        Mockito.verify(adminProductService, Mockito.never()).updateProduct(Mockito.anyString(), Mockito.anyString(), Mockito.any(BigDecimal.class), Mockito.any());
+        Mockito.verify(adminProductService, Mockito.never()).updateProduct(Mockito.anyString(), Mockito.anyString(), Mockito.any(BigDecimal.class), Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    public void updateProduct_shouldRejectNegativeStockWithoutWritingDatabase() {
+        AdminController controller = new AdminController();
+        IAdminProductService adminProductService = Mockito.mock(IAdminProductService.class);
+        ReflectionTestUtils.setField(controller, "adminProductService", adminProductService);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setCookies(new Cookie("username", "admin"));
+        Map<String, Object> requestDTO = new HashMap<>();
+        requestDTO.put("name", "测试商品");
+        requestDTO.put("price", "99.00");
+        requestDTO.put("stock", "-1");
+
+        Response<Boolean> response = controller.updateProduct(request, "10001", requestDTO);
+
+        Assertions.assertEquals(ResponseCode.ILLEGAL_PARAMETER.getCode(), response.getCode());
+        Assertions.assertEquals("库存不能为负数", response.getInfo());
+        Assertions.assertEquals(Boolean.FALSE, response.getData());
+        Mockito.verify(adminProductService, Mockito.never()).updateProduct(Mockito.anyString(), Mockito.anyString(), Mockito.any(BigDecimal.class), Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -164,7 +185,7 @@ public class AdminControllerTest {
         AdminController controller = new AdminController();
         IAdminProductService adminProductService = Mockito.mock(IAdminProductService.class);
         ReflectionTestUtils.setField(controller, "adminProductService", adminProductService);
-        Mockito.when(adminProductService.createProduct("10001", "测试商品", new BigDecimal("99.00"), 1001L)).thenReturn(true);
+        Mockito.when(adminProductService.createProduct("10001", "测试商品", new BigDecimal("99.00"), 25, 1001L)).thenReturn(true);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setCookies(new Cookie("username", "admin"));
@@ -172,13 +193,14 @@ public class AdminControllerTest {
         requestDTO.put("sku", "10001");
         requestDTO.put("name", "测试商品");
         requestDTO.put("price", "99.00");
+        requestDTO.put("stock", "25");
         requestDTO.put("activityId", "1001");
 
         Response<Boolean> response = controller.createProduct(request, requestDTO);
 
         Assertions.assertEquals(ResponseCode.SUCCESS.getCode(), response.getCode());
         Assertions.assertEquals(Boolean.TRUE, response.getData());
-        Mockito.verify(adminProductService).createProduct("10001", "测试商品", new BigDecimal("99.00"), 1001L);
+        Mockito.verify(adminProductService).createProduct("10001", "测试商品", new BigDecimal("99.00"), 25, 1001L);
     }
 
     @Test

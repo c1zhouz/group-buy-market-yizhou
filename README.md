@@ -122,7 +122,8 @@ mvn -q test
 ### 3. 启动后端
 
 ```bash
-mvn -pl group-buy-market-yizhou-app -am spring-boot:run
+mvn -pl group-buy-market-yizhou-app -am install -DskipTests
+mvn -pl group-buy-market-yizhou-app spring-boot:run
 ```
 
 启动后可以访问：
@@ -131,7 +132,13 @@ mvn -pl group-buy-market-yizhou-app -am spring-boot:run
 - 登录页：`http://127.0.0.1:8091/login.html`
 - 后台页面：`http://127.0.0.1:8091/admin.html`
 
-也可以只预览静态页面：
+从旧数据库升级时，先执行一次 `docs/dev-ops/mysql/sql/2-16-add-sku-stock.sql`，为商品表补齐库存字段。使用项目 Docker MySQL 时可直接执行：
+
+```bash
+docker exec -i mysql mysql -uroot -p123456 group_buy_market < docs/dev-ops/mysql/sql/2-16-add-sku-stock.sql
+```
+
+业务访问统一使用 `8091`，同一次登录不要混用 `localhost` 和 `127.0.0.1`。`8088` 仅用于不依赖登录态和后端接口的静态页面预览：
 
 ```bash
 cd docs/ui/html

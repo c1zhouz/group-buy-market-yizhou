@@ -27,6 +27,9 @@ import java.util.stream.Collectors;
 @Repository
 public class ActivityRepository implements IActivityRepository {
 
+    private static final int DEFAULT_PRODUCT_STOCK = 100;
+    private static final int COMPLETE_ORDER_STATUS = 1;
+
     @Resource
     private IGroupBuyActivityDao groupBuyActivityDao;
     @Resource
@@ -162,6 +165,7 @@ public class ActivityRepository implements IActivityRepository {
                         discount -> discount,
                         (oldValue, newValue) -> oldValue
                 ));
+        Map<String, Long> paidOrderCountMap = queryPaidOrderCountMap();
 
         Date now = new Date();
         List<AdminProductEntity> productList = new ArrayList<>();
@@ -186,7 +190,7 @@ public class ActivityRepository implements IActivityRepository {
             productList.add(AdminProductEntity.builder()
                     .goodsId(sku.getGoodsId())
                     .goodsName(sku.getGoodsName())
-                    .stock(100)
+                    .stock(calculateAvailableStock(sku.getStock(), sku.getGoodsId(), paidOrderCountMap))
                     .status("上架")
                     .price(null == sku.getOriginalPrice() ? BigDecimal.ZERO : sku.getOriginalPrice())
                     .activityId(hasUsableActivity ? relation.getActivityId() : null)
@@ -209,8 +213,8 @@ public class ActivityRepository implements IActivityRepository {
     }
 
     @Override
-    public boolean createProduct(String source, String channel, String goodsId, String goodsName, BigDecimal price, Long activityId) {
-        Sku sku = buildSku(source, channel, goodsId, goodsName, price);
+    public boolean createProduct(String source, String channel, String goodsId, String goodsName, BigDecimal price, Integer stock, Long activityId) {
+        Sku sku = buildSku(source, channel, goodsId, goodsName, price, null == stock ? DEFAULT_PRODUCT_STOCK : stock);
         int count = skuDao.insertSku(sku);
         if (count <= 0) {
             return false;
@@ -219,8 +223,8 @@ public class ActivityRepository implements IActivityRepository {
     }
 
     @Override
-    public boolean updateProduct(String source, String channel, String goodsId, String goodsName, BigDecimal price, Long activityId) {
-        Sku sku = buildSku(source, channel, goodsId, goodsName, price);
+    public boolean updateProduct(String source, String channel, String goodsId, String goodsName, BigDecimal price, Integer stock, Long activityId) {
+        Sku sku = buildSku(source, channel, goodsId, goodsName, price, null == stock ? null : calculateConfiguredStock(goodsId, stock));
         int count = skuDao.updateSkuByGoodsId(sku);
         if (count <= 0) {
             return false;
@@ -250,7 +254,8 @@ public class ActivityRepository implements IActivityRepository {
         int insertedCount = 0;
         Long defaultActivityId = resolveAvailableActivityId();
         for (Sku demoSku : demoSkus) {
-            Sku sku = buildSku(source, channel, demoSku.getGoodsId(), demoSku.getGoodsName(), demoSku.getOriginalPrice());
+            Sku sku = buildSku(source, channel, demoSku.getGoodsId(), demoSku.getGoodsName(), demoSku.getOriginalPrice(),
+                    null == demoSku.getStock() ? DEFAULT_PRODUCT_STOCK : demoSku.getStock());
             insertedCount += skuDao.insertSku(sku);
             if (null != defaultActivityId) {
                 syncProductActivityMapping(source, channel, sku.getGoodsId(), defaultActivityId);
@@ -451,6 +456,67 @@ public class ActivityRepository implements IActivityRepository {
         return !"1.99".equals(expr);
     }
 
+    private Map<String, Long> queryPaidOrderCountMap() {
+        List<Map<String, Object>> paidCountRows = Optional.ofNullable(groupBuyOrderListDao.queryAdminOrderCountByStatusGroupByGoodsId(COMPLETE_ORDER_STATUS))
+                .orElse(Collections.emptyList());
+        Map<String, Long> paidCountMap = new HashMap<>();
+        for (Map<String, Object> row : paidCountRows) {
+            if (null == row) continue;
+            String goodsId = parseText(firstPresent(row, "goodsId", "goods_id", "GOODSID", "GOODS_ID"));
+            if (goodsId.isEmpty()) continue;
+            paidCountMap.merge(goodsId, parseLong(firstPresent(row, "orderCount", "order_count", "ORDERCOUNT", "ORDER_COUNT")), Long::sum);
+        }
+        if (!paidCountMap.isEmpty()) {
+            return paidCountMap;
+        }
+
+        List<GroupBuyOrderList> paidOrderList = Optional.ofNullable(groupBuyOrderListDao.queryAdminOrderListByStatus(COMPLETE_ORDER_STATUS))
+                .orElse(Collections.emptyList());
+        return paidOrderList.stream()
+                .filter(Objects::nonNull)
+                .map(GroupBuyOrderList::getGoodsId)
+                .filter(goodsId -> null != goodsId && !goodsId.trim().isEmpty())
+                .collect(Collectors.groupingBy(goodsId -> goodsId, Collectors.counting()));
+    }
+
+    private int calculateAvailableStock(Integer configuredStock, String goodsId, Map<String, Long> paidOrderCountMap) {
+        int baseStock = null == configuredStock ? DEFAULT_PRODUCT_STOCK : configuredStock;
+        long paidCount = Optional.ofNullable(paidOrderCountMap.get(goodsId)).orElse(0L);
+        return Math.max(baseStock - (int) paidCount, 0);
+    }
+
+    private int calculateConfiguredStock(String goodsId, Integer availableStock) {
+        long paidCount = Optional.ofNullable(queryPaidOrderCountMap().get(goodsId)).orElse(0L);
+        return availableStock + (int) paidCount;
+    }
+
+    private Object firstPresent(Map<String, Object> row, String... keys) {
+        for (String key : keys) {
+            if (row.containsKey(key)) {
+                return row.get(key);
+            }
+        }
+        return null;
+    }
+
+    private String parseText(Object value) {
+        return null == value ? "" : String.valueOf(value).trim();
+    }
+
+    private long parseLong(Object value) {
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        if (null == value) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(String.valueOf(value));
+        } catch (NumberFormatException ignore) {
+            return 0L;
+        }
+    }
+
     private String convertActivityTypeText(GroupBuyActivity activity) {
         Integer target = null == activity ? null : activity.getTarget();
         if (null == target || target <= 0) return "拼团";
@@ -474,13 +540,14 @@ public class ActivityRepository implements IActivityRepository {
         return null == marketPlan || marketPlan.trim().isEmpty() ? "未知优惠" : marketPlan;
     }
 
-    private Sku buildSku(String source, String channel, String goodsId, String goodsName, BigDecimal price) {
+    private Sku buildSku(String source, String channel, String goodsId, String goodsName, BigDecimal price, Integer stock) {
         Sku sku = new Sku();
         sku.setSource(source);
         sku.setChannel(channel);
         sku.setGoodsId(goodsId);
         sku.setGoodsName(goodsName);
         sku.setOriginalPrice(price);
+        sku.setStock(stock);
         return sku;
     }
 

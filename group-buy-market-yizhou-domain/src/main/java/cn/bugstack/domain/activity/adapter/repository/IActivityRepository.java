@@ -29,9 +29,9 @@ public interface IActivityRepository {
 
     AdminProductListEntity queryAdminProductList(String source, String channel);
 
-    boolean createProduct(String source, String channel, String goodsId, String goodsName, BigDecimal price, Long activityId);
+    boolean createProduct(String source, String channel, String goodsId, String goodsName, BigDecimal price, Integer stock, Long activityId);
 
-    boolean updateProduct(String source, String channel, String goodsId, String goodsName, BigDecimal price, Long activityId);
+    boolean updateProduct(String source, String channel, String goodsId, String goodsName, BigDecimal price, Integer stock, Long activityId);
 
     boolean deleteProduct(String source, String channel, String goodsId);
 

@@ -26,13 +26,13 @@ public class AdminProductServiceImpl implements IAdminProductService {
     }
 
     @Override
-    public boolean createProduct(String goodsId, String goodsName, BigDecimal price, Long activityId) {
-        return repository.createProduct(DEFAULT_SOURCE, DEFAULT_CHANNEL, goodsId, goodsName, price, activityId);
+    public boolean createProduct(String goodsId, String goodsName, BigDecimal price, Integer stock, Long activityId) {
+        return repository.createProduct(DEFAULT_SOURCE, DEFAULT_CHANNEL, goodsId, goodsName, price, stock, activityId);
     }
 
     @Override
-    public boolean updateProduct(String goodsId, String goodsName, BigDecimal price, Long activityId) {
-        return repository.updateProduct(DEFAULT_SOURCE, DEFAULT_CHANNEL, goodsId, goodsName, price, activityId);
+    public boolean updateProduct(String goodsId, String goodsName, BigDecimal price, Integer stock, Long activityId) {
+        return repository.updateProduct(DEFAULT_SOURCE, DEFAULT_CHANNEL, goodsId, goodsName, price, stock, activityId);
     }
 
     @Override

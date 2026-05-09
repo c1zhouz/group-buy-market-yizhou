@@ -19,6 +19,14 @@ This folder now follows "C-end mall main entry + admin management system".
 
 ## Local Preview
 
+Business flows with login and backend APIs should be opened from the Spring Boot port:
+
+- `http://127.0.0.1:8091/index.html`
+- `http://127.0.0.1:8091/login.html`
+- `http://127.0.0.1:8091/admin.html`
+
+The `8088` server is only for static layout preview, not for authenticated admin flows.
+
 Run from project root:
 
 ```bash

@@ -324,6 +324,7 @@ CREATE TABLE `sku` (
   `goods_id` varchar(16) NOT NULL COMMENT '商品ID',
   `goods_name` varchar(128) NOT NULL COMMENT '商品名称',
   `original_price` decimal(10,2) NOT NULL COMMENT '商品价格',
+  `stock` int(11) unsigned NOT NULL DEFAULT '100' COMMENT '库存',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
@@ -333,9 +334,9 @@ CREATE TABLE `sku` (
 LOCK TABLES `sku` WRITE;
 /*!40000 ALTER TABLE `sku` DISABLE KEYS */;
 
-INSERT INTO `sku` (`id`, `source`, `channel`, `goods_id`, `goods_name`, `original_price`, `create_time`, `update_time`)
+INSERT INTO `sku` (`id`, `source`, `channel`, `goods_id`, `goods_name`, `original_price`, `stock`, `create_time`, `update_time`)
 VALUES
-	(1,'s01','c01','9890001','《手写MyBatis：渐进式源码实践》',100.00,'2024-12-21 11:10:06','2024-12-21 11:10:06');
+	(1,'s01','c01','9890001','《手写MyBatis：渐进式源码实践》',100.00,100,'2024-12-21 11:10:06','2024-12-21 11:10:06');
 
 /*!40000 ALTER TABLE `sku` ENABLE KEYS */;
 UNLOCK TABLES;

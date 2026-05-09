@@ -188,6 +188,14 @@
         select count(1) from group_buy_order_list where status = #{status}
     </select>
 
+    <select id="queryAdminOrderCountByStatusGroupByGoodsId" resultType="java.util.Map">
+        select goods_id as goodsId,
+               count(1) as orderCount
+        from group_buy_order_list
+        where status = #{status}
+        group by goods_id
+    </select>
+
     <select id="queryAdminGMVByStatus" parameterType="java.lang.Integer" resultType="java.math.BigDecimal">
         select ifnull(sum(original_price - deduction_price), 0)
         from group_buy_order_list
