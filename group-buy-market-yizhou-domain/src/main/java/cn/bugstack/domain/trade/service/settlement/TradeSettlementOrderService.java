@@ -106,7 +106,7 @@ public class TradeSettlementOrderService implements ITradeSettlementOrderService
     }
 
     private Map<String, Integer> execSettlementNotifyJob(List<NotifyTaskEntity> notifyTaskEntityList) throws Exception {
-        int successCount = 0, errorCount = 0, retryCount = 0;
+        int successCount = 0, errorCount = 0, retryCount = 0, queuedCount = 0;
         for (NotifyTaskEntity notifyTask : notifyTaskEntityList) {
             // 回调处理 success 成功，error 失败
             String response = port.groupBuyNotify(notifyTask);
@@ -117,16 +117,22 @@ public class TradeSettlementOrderService implements ITradeSettlementOrderService
                 if (1 == updateCount) {
                     successCount += 1;
                 }
+            } else if (NotifyTaskHTTPEnumVO.QUEUED.getCode().equals(response)) {
+                int updateCount = repository.updateNotifyTaskStatusRetry(notifyTask.getTeamId());
+                if (1 == updateCount) {
+                    retryCount += 1;
+                    queuedCount += 1;
+                }
             } else if (NotifyTaskHTTPEnumVO.ERROR.getCode().equals(response)) {
                 if (notifyTask.getNotifyCount() < 5) {
-                    int updateCount = repository.updateNotifyTaskStatusError(notifyTask.getTeamId());
-                    if (1 == updateCount) {
-                        errorCount += 1;
-                    }
-                } else {
                     int updateCount = repository.updateNotifyTaskStatusRetry(notifyTask.getTeamId());
                     if (1 == updateCount) {
                         retryCount += 1;
+                    }
+                } else {
+                    int updateCount = repository.updateNotifyTaskStatusError(notifyTask.getTeamId());
+                    if (1 == updateCount) {
+                        errorCount += 1;
                     }
                 }
             }
@@ -137,6 +143,7 @@ public class TradeSettlementOrderService implements ITradeSettlementOrderService
         resultMap.put("successCount", successCount);
         resultMap.put("errorCount", errorCount);
         resultMap.put("retryCount", retryCount);
+        resultMap.put("queuedCount", queuedCount);
 
         return resultMap;
     }

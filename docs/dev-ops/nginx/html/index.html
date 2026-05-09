@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>小傅哥 - 拼团项目 - 商品详情页</title>
     <link rel="stylesheet" href="css/index.css">
+    <script>
+      // Deprecated entry: always route to the canonical UI page.
+      (function () {
+        var target = "../../../ui/html/index.html";
+        var query = window.location.search || "";
+        var hash = window.location.hash || "";
+        window.location.replace(target + query + hash);
+      })();
+    </script>
 
 </head>
 <body>
@@ -246,8 +255,70 @@ document.addEventListener('DOMContentLoaded', function() {
     modal.style.display = "none"
   }
 
+  async function cancelPendingGroupOrder() {
+    if (!outTradeNo) return;
+    const response = await fetch(baseUrl + '/api/v1/gbm/trade/cancel_market_pay_order', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        source: "s01",
+        channel: "c01",
+        userId: userId,
+        outTradeNo: outTradeNo
+      })
+    });
+    const res = await response.json();
+    if (res.code !== '0000') {
+      throw new Error(res.info || '未知错误');
+    }
+    outTradeNo = '';
+  }
+
+  async function cancelPendingDirectOrder() {
+    if (!directOutTradeNo) return;
+    const response = await fetch(baseUrl + '/api/v1/test/direct_buy_cancel_notify', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        source: "s01",
+        channel: "c01",
+        userId: userId,
+        outTradeNo: directOutTradeNo,
+        goodsId: "9890001",
+        payAmount: paymentAmount.textContent.replace('支付金额：￥', '')
+      })
+    });
+    const res = await response.text();
+    if (String(res).trim().toLowerCase() !== 'success') {
+      throw new Error('取消记录失败');
+    }
+    directOutTradeNo = '';
+  }
+
+  async function onCancelPayment() {
+    hidePaymentModal();
+
+    try {
+      if (currentPayMode === 'direct') {
+        await cancelPendingDirectOrder();
+        window.location.reload();
+        return;
+      }
+
+      await cancelPendingGroupOrder();
+      window.location.reload();
+    } catch (error) {
+      console.error('取消支付失败:', error);
+      alert('取消支付失败，请稍后重试');
+    }
+  }
+
   // 取消支付
-  cancelPayment.addEventListener("click", hidePaymentModal)
+  cancelPayment.addEventListener("click", onCancelPayment)
 
   // 支付完成
   completePayment.addEventListener("click", () => {
@@ -326,7 +397,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // 点击弹窗外部关闭弹窗
   window.addEventListener("click", (event) => {
     if (event.target == modal) {
-      hidePaymentModal()
+      onCancelPayment()
     }
   })
 

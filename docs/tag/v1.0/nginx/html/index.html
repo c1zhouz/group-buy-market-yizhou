@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>小傅哥 - 拼团项目 - 商品详情页</title>
     <link rel="stylesheet" href="css/index.css">
+    <script>
+      // Deprecated entry: always route to the canonical UI page.
+      (function () {
+        var target = "../../../../ui/html/index.html";
+        var query = window.location.search || "";
+        var hash = window.location.hash || "";
+        window.location.replace(target + query + hash);
+      })();
+    </script>
 </head>
 <body>
 <!-- 轮播图 -->
@@ -67,6 +76,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 定义交易单号，如果交易单号不为空，则当前用户已参与拼团交易
     let outTradeNo = "";
+    let currentPayMode = "group";
+    let directOutTradeNo = "";
 
     // 请求接口数据
     fetch(baseUrl + '/api/v1/gbm/index/query_group_buy_market_config', {
@@ -139,6 +150,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // 绑定支付事件[拼团购买]
         document.querySelectorAll('.group-btn, .group-buy').forEach(btn => {
             btn.addEventListener('click', function() {
+                currentPayMode = "group";
 
                 // 如果有值，则直接展示支付按钮
                 if(outTradeNo) {
@@ -229,13 +241,16 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       const price = this.getAttribute("data-price")
-      showPaymentModal(price)
+      currentPayMode = "direct";
+      directOutTradeNo = `D${generateRandomNumber(11)}`;
+      showPaymentModal(price, directOutTradeNo)
     })
   })
 
   // 显示支付弹窗
-  function showPaymentModal(price) {
+  function showPaymentModal(price, tradeNo) {
     paymentAmount.textContent = `支付金额：￥${price}`
+    document.getElementById('outTradeNo').textContent = tradeNo || ''
     modal.style.display = "block"
   }
 
@@ -244,11 +259,103 @@ document.addEventListener('DOMContentLoaded', function() {
     modal.style.display = "none"
   }
 
+  async function cancelPendingGroupOrder() {
+    if (!outTradeNo) return;
+    const response = await fetch(baseUrl + '/api/v1/gbm/trade/cancel_market_pay_order', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        source: "s01",
+        channel: "c01",
+        userId: userId,
+        outTradeNo: outTradeNo
+      })
+    });
+    const res = await response.json();
+    if (res.code !== '0000') {
+      throw new Error(res.info || '未知错误');
+    }
+    outTradeNo = null;
+  }
+
+  async function cancelPendingDirectOrder() {
+    if (!directOutTradeNo) return;
+    const response = await fetch(baseUrl + '/api/v1/test/direct_buy_cancel_notify', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        source: "s01",
+        channel: "c01",
+        userId: userId,
+        outTradeNo: directOutTradeNo,
+        goodsId: "9890001",
+        payAmount: paymentAmount.textContent.replace('支付金额：￥', '')
+      })
+    });
+    const res = await response.text();
+    if (String(res).trim().toLowerCase() !== 'success') {
+      throw new Error('取消记录失败');
+    }
+    directOutTradeNo = '';
+  }
+
+  async function onCancelPayment() {
+    hidePaymentModal();
+    try {
+      if (currentPayMode === 'direct') {
+        await cancelPendingDirectOrder();
+        window.location.reload();
+        return;
+      }
+
+      await cancelPendingGroupOrder();
+      window.location.reload();
+    } catch (error) {
+      console.error('取消支付失败:', error);
+      alert('取消支付失败，请稍后重试');
+    }
+  }
+
   // 取消支付
-  cancelPayment.addEventListener("click", hidePaymentModal)
+  cancelPayment.addEventListener("click", onCancelPayment)
 
   // 支付完成
   completePayment.addEventListener("click", () => {
+    if (currentPayMode === 'direct') {
+      const postData = {
+        userId: userId,
+        outTradeNo: directOutTradeNo,
+        goodsId: "9890001",
+        source: "s01",
+        channel: "c01",
+        payAmount: paymentAmount.textContent.replace('支付金额：￥', ''),
+        outTradeTime: new Date()
+      };
+
+      fetch(baseUrl + '/api/v1/test/direct_buy_notify', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify(postData)
+      })
+      .then(response => response.text())
+      .then(() => {
+        alert('单独购买成功！已完成支付。');
+        directOutTradeNo = '';
+        hidePaymentModal();
+      })
+      .catch(error => {
+        console.error('单独购买请求失败:', error);
+        alert('单独购买请求失败，请检查网络连接');
+      });
+      return;
+    }
+
     // 生成符合要求的交易时间格式
     const formatTime = date => date.toISOString()
         .replace(/T/, ' ')
@@ -295,7 +402,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // 点击弹窗外部关闭弹窗
   window.addEventListener("click", (event) => {
     if (event.target == modal) {
-      hidePaymentModal()
+      onCancelPayment()
     }
   })
 

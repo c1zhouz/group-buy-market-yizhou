@@ -1,10 +1,12 @@
 package cn.bugstack.infrastructure.redis;
 
 import org.redisson.api.*;
+import org.redisson.client.codec.StringCodec;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -107,6 +109,12 @@ public class RedissonService implements IRedisService {
     }
 
     @Override
+    public String pollFromList(String key) {
+        RQueue<String> queue = redissonClient.getQueue(key);
+        return queue.poll();
+    }
+
+    @Override
     public <K, V> RMap<K, V> getMap(String key) {
         return redissonClient.getMap(key);
     }
@@ -179,6 +187,11 @@ public class RedissonService implements IRedisService {
     @Override
     public RBitSet getBitSet(String key) {
         return redissonClient.getBitSet(key);
+    }
+
+    @Override
+    public <T> T eval(String script, RScript.ReturnType returnType, List<Object> keys, Object... values) {
+        return redissonClient.getScript(StringCodec.INSTANCE).eval(RScript.Mode.READ_WRITE, script, returnType, keys, values);
     }
 
 }

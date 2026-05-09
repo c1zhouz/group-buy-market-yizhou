@@ -25,12 +25,12 @@ public class UserTakeLimitRuleFilter implements ILogicHandler<TradeLockRuleComma
 
     @Override
     public TradeLockRuleFilterBackEntity apply(TradeLockRuleCommandEntity requestParameter, TradeLockRuleFilterFactory.DynamicContext dynamicContext) throws Exception {
-        log.info("交易规则过滤-用户参与次数校验{} activityId:{}", requestParameter.getUserId(), requestParameter.getActivityId());
+        log.info("交易规则过滤-用户参与次数校验{} goodsId:{}", requestParameter.getUserId(), requestParameter.getGoodsId());
 
         GroupBuyActivityEntity groupBuyActivity = dynamicContext.getGroupBuyActivity();
 
-        // 查询用户在一个拼团活动上参与的次数
-        Integer count = repository.queryOrderCountByActivityId(requestParameter.getActivityId(), requestParameter.getUserId());
+        // 查询用户在当前商品上的参与次数
+        Integer count = repository.queryOrderCountByGoodsId(requestParameter.getUserId(), requestParameter.getGoodsId());
 
         if (null != groupBuyActivity.getTakeLimitCount() && count >= groupBuyActivity.getTakeLimitCount()) {
             log.info("用户参与次数校验，已达可参与上限 activityId:{}", requestParameter.getActivityId());

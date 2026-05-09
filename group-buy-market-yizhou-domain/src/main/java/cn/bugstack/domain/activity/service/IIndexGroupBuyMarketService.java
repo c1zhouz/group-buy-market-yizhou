@@ -1,6 +1,7 @@
 package cn.bugstack.domain.activity.service;
 
 import cn.bugstack.domain.activity.model.entity.UserGroupBuyOrderDetailEntity;
+import cn.bugstack.domain.activity.model.entity.MarketProductItemEntity;
 import cn.bugstack.domain.activity.model.entity.MarketProductEntity;
 import cn.bugstack.domain.activity.model.entity.TrialBalanceEntity;
 import cn.bugstack.domain.activity.model.valobj.TeamStatisticVO;
@@ -16,6 +17,8 @@ public interface IIndexGroupBuyMarketService {
 
     TrialBalanceEntity indexMarketTrial(MarketProductEntity marketProductEntity) throws Exception;
 
+    List<MarketProductItemEntity> queryMarketProductList(String source, String channel);
+
     /**
      * 查询进行中的拼团订单
      *
@@ -25,7 +28,11 @@ public interface IIndexGroupBuyMarketService {
      * @param randomCount 随机数量
      * @return 用户拼团明细数据
      */
-    List<UserGroupBuyOrderDetailEntity> queryInProgressUserGroupBuyOrderDetailList(Long activityId, String userId, Integer ownerCount, Integer randomCount);
+    List<UserGroupBuyOrderDetailEntity> queryInProgressUserGroupBuyOrderDetailList(Long activityId, String goodsId, String userId, Integer ownerCount, Integer randomCount);
+
+    String queryTeamLeaderUserIdByTeamId(String teamId);
+
+    List<String> queryTeamMemberUserIdsByTeamId(String teamId);
 
     /**
      * 活动拼团队伍总结

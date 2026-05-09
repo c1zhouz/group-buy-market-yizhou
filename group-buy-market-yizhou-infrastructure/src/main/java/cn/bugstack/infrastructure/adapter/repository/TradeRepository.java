@@ -15,6 +15,7 @@ import cn.bugstack.infrastructure.dao.po.GroupBuyOrder;
 import cn.bugstack.infrastructure.dao.po.GroupBuyOrderList;
 import cn.bugstack.infrastructure.dao.po.NotifyTask;
 import cn.bugstack.infrastructure.dcc.DCCService;
+import cn.bugstack.infrastructure.redis.IRedisService;
 import cn.bugstack.types.common.Constants;
 import cn.bugstack.types.enums.ActivityStatusEnumVO;
 import cn.bugstack.types.enums.GroupBuyOrderEnumVO;
@@ -24,14 +25,16 @@ import com.alibaba.fastjson2.JSON;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.redisson.api.RScript;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StreamUtils;
 
 import javax.annotation.Resource;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.nio.charset.StandardCharsets;
+import java.io.IOException;
 import java.util.*;
 
 /**
@@ -40,6 +43,9 @@ import java.util.*;
 @Slf4j
 @Repository
 public class TradeRepository implements ITradeRepository {
+
+    private static final String LUA_LOCK_OCCUPANCY = "lua/lock_market_pay_order.lua";
+    private static final String LUA_RELEASE_OCCUPANCY = "lua/release_market_pay_order.lua";
 
     @Resource
     private IGroupBuyActivityDao groupBuyActivityDao;
@@ -51,6 +57,8 @@ public class TradeRepository implements ITradeRepository {
     private INotifyTaskDao notifyTaskDao;
     @Resource
     private DCCService dccService;
+    @Resource
+    private IRedisService redisService;
 
     @Override
     public MarketPayOrderEntity queryMarketPayOrderEntityByOutTradeNo(String userId, String outTradeNo) {
@@ -58,6 +66,23 @@ public class TradeRepository implements ITradeRepository {
         groupBuyOrderListReq.setUserId(userId);
         groupBuyOrderListReq.setOutTradeNo(outTradeNo);
         GroupBuyOrderList groupBuyOrderListRes = groupBuyOrderListDao.queryGroupBuyOrderRecordByOutTradeNo(groupBuyOrderListReq);
+        if (null == groupBuyOrderListRes) return null;
+
+        return MarketPayOrderEntity.builder()
+                .teamId(groupBuyOrderListRes.getTeamId())
+                .orderId(groupBuyOrderListRes.getOrderId())
+                .deductionPrice(groupBuyOrderListRes.getDeductionPrice())
+                .tradeOrderStatusEnumVO(TradeOrderStatusEnumVO.valueOf(groupBuyOrderListRes.getStatus()))
+                .build();
+    }
+
+    @Override
+    public MarketPayOrderEntity queryNoPayMarketPayOrder(String userId, Long activityId, String goodsId) {
+        GroupBuyOrderList groupBuyOrderListReq = new GroupBuyOrderList();
+        groupBuyOrderListReq.setUserId(userId);
+        groupBuyOrderListReq.setActivityId(activityId);
+        groupBuyOrderListReq.setGoodsId(goodsId);
+        GroupBuyOrderList groupBuyOrderListRes = groupBuyOrderListDao.queryNoPayOrderByUserActivityGoods(groupBuyOrderListReq);
         if (null == groupBuyOrderListRes) return null;
 
         return MarketPayOrderEntity.builder()
@@ -79,9 +104,10 @@ public class TradeRepository implements ITradeRepository {
 
         // 判断是否有团 - teamId 为空 - 新团、为不空 - 老团
         String teamId = payActivityEntity.getTeamId();
+        boolean luaOccupancyLocked = false;
         if (StringUtils.isBlank(teamId)) {
-            // 使用 RandomStringUtils.randomNumeric 替代公司里使用的雪花算法UUID
-            teamId = RandomStringUtils.randomNumeric(8);
+            // Build a longer unique team id to avoid collisions across historical records.
+            teamId = generateUniqueTeamId();
             // 日期处理
             Date currentDate = new Date();
             Calendar calendar = Calendar.getInstance();
@@ -108,9 +134,51 @@ public class TradeRepository implements ITradeRepository {
             // 写入记录
             groupBuyOrderDao.insert(groupBuyOrder);
         } else {
+            // 老团先执行 Redis Lua 原子占位，避免高并发超卖
+            if (dccService.isTradeLockLuaSwitch()) {
+                GroupBuyOrder groupBuyOrder = groupBuyOrderDao.queryGroupBuyTeamByTeamId(teamId);
+                if (null == groupBuyOrder || null == groupBuyOrder.getTargetCount() || null == groupBuyOrder.getLockCount()) {
+                    throw new AppException(ResponseCode.E0005);
+                }
+
+                int lockResult = lockTeamOccupancyByLua(teamId, payActivityEntity.getActivityId(), payDiscountEntity.getOutTradeNo(), groupBuyOrder.getLockCount(), groupBuyOrder.getTargetCount());
+                boolean bypassLuaResultWithDb = false;
+
+                // Self-heal stale Redis lock counters caused by historical script failures.
+                if (2 == lockResult) {
+                    GroupBuyOrder latestOrder = groupBuyOrderDao.queryGroupBuyTeamByTeamId(teamId);
+                    boolean dbStillHasSeat = null != latestOrder
+                            && Objects.equals(latestOrder.getStatus(), 0)
+                            && null != latestOrder.getValidEndTime()
+                            && latestOrder.getValidEndTime().after(new Date())
+                            && null != latestOrder.getTargetCount()
+                            && null != latestOrder.getLockCount()
+                            && latestOrder.getLockCount() < latestOrder.getTargetCount();
+                    if (dbStillHasSeat) {
+                        resetTeamOccupancyCache(teamId, payActivityEntity.getActivityId());
+                        lockResult = lockTeamOccupancyByLua(teamId, payActivityEntity.getActivityId(), payDiscountEntity.getOutTradeNo(), latestOrder.getLockCount(), latestOrder.getTargetCount());
+                        // Redis may still return stale no-seat; trust DB CAS update as final source of truth.
+                        if (2 == lockResult) {
+                            bypassLuaResultWithDb = true;
+                            log.warn("Lua占位返回无名额但DB仍有名额，降级为DB更新判定 teamId:{} activityId:{} userId:{}",
+                                    teamId, payActivityEntity.getActivityId(), userEntity.getUserId());
+                        }
+                    }
+                }
+                // 2: 名额不足，直接拦截
+                if (2 == lockResult && !bypassLuaResultWithDb) {
+                    throw new AppException(ResponseCode.E0005);
+                }
+                // 1: 幂等命中，交给后续订单唯一约束兜底，避免重复扣减
+                luaOccupancyLocked = 0 == lockResult;
+            }
+
             // 更新记录 - 如果更新记录不等于1，则表示拼团已满，抛出异常
             int updateAddTargetCount = groupBuyOrderDao.updateAddLockCount(teamId);
             if (1 != updateAddTargetCount) {
+                if (luaOccupancyLocked) {
+                    releaseTeamOccupancyByLua(teamId, payActivityEntity.getActivityId(), payDiscountEntity.getOutTradeNo());
+                }
                 throw new AppException(ResponseCode.E0005);
             }
         }
@@ -138,7 +206,17 @@ public class TradeRepository implements ITradeRepository {
             // 写入拼团记录
             groupBuyOrderListDao.insert(groupBuyOrderListReq);
         } catch (DuplicateKeyException e) {
+            if (StringUtils.isNotBlank(payActivityEntity.getTeamId()) && luaOccupancyLocked) {
+                releaseTeamOccupancyByLua(payActivityEntity.getTeamId(), payActivityEntity.getActivityId(), payDiscountEntity.getOutTradeNo());
+                groupBuyOrderDao.updateSubtractionLockCount(payActivityEntity.getTeamId());
+            }
             throw new AppException(ResponseCode.INDEX_EXCEPTION);
+        } catch (RuntimeException e) {
+            if (StringUtils.isNotBlank(payActivityEntity.getTeamId()) && luaOccupancyLocked) {
+                releaseTeamOccupancyByLua(payActivityEntity.getTeamId(), payActivityEntity.getActivityId(), payDiscountEntity.getOutTradeNo());
+                groupBuyOrderDao.updateSubtractionLockCount(payActivityEntity.getTeamId());
+            }
+            throw e;
         }
 
         return MarketPayOrderEntity.builder()
@@ -146,6 +224,40 @@ public class TradeRepository implements ITradeRepository {
                 .deductionPrice(payDiscountEntity.getDeductionPrice())
                 .tradeOrderStatusEnumVO(TradeOrderStatusEnumVO.CREATE)
                 .build();
+    }
+
+    @Transactional(timeout = 500)
+    @Override
+    public boolean cancelNoPayMarketPayOrder(String userId, String outTradeNo) {
+        GroupBuyOrderList groupBuyOrderList = groupBuyOrderListDao.queryGroupBuyOrderByOutTradeNo(userId, outTradeNo);
+        if (null == groupBuyOrderList) {
+            return true;
+        }
+
+        if (!Objects.equals(groupBuyOrderList.getStatus(), TradeOrderStatusEnumVO.CREATE.getCode())) {
+            return true;
+        }
+
+        int closeOrderCount = groupBuyOrderListDao.updateOrderStatus2CLOSE(userId, outTradeNo);
+        if (1 != closeOrderCount) {
+            GroupBuyOrderList latestOrder = groupBuyOrderListDao.queryGroupBuyOrderByOutTradeNo(userId, outTradeNo);
+            if (null == latestOrder || !Objects.equals(latestOrder.getStatus(), TradeOrderStatusEnumVO.CREATE.getCode())) {
+                return true;
+            }
+            throw new AppException(ResponseCode.UPDATE_ZERO);
+        }
+
+        int subtractionLockCount = groupBuyOrderDao.updateSubtractionLockCount(groupBuyOrderList.getTeamId());
+        if (1 != subtractionLockCount) {
+            throw new AppException(ResponseCode.UPDATE_ZERO);
+        }
+
+        if (dccService.isTradeLockLuaSwitch()) {
+            releaseTeamOccupancyByLua(groupBuyOrderList.getTeamId(), groupBuyOrderList.getActivityId(), outTradeNo);
+        }
+
+        groupBuyOrderDao.updateOrderStatus2CLOSEIfEmpty(groupBuyOrderList.getTeamId());
+        return true;
     }
 
     @Override
@@ -179,11 +291,11 @@ public class TradeRepository implements ITradeRepository {
     }
 
     @Override
-    public Integer queryOrderCountByActivityId(Long activityId, String userId) {
+    public Integer queryOrderCountByGoodsId(String userId, String goodsId) {
         GroupBuyOrderList groupBuyOrderListReq = new GroupBuyOrderList();
-        groupBuyOrderListReq.setActivityId(activityId);
         groupBuyOrderListReq.setUserId(userId);
-        return groupBuyOrderListDao.queryOrderCountByActivityId(groupBuyOrderListReq);
+        groupBuyOrderListReq.setGoodsId(goodsId);
+        return groupBuyOrderListDao.queryOrderCountByGoodsId(groupBuyOrderListReq);
     }
 
     @Override
@@ -309,6 +421,66 @@ public class TradeRepository implements ITradeRepository {
     @Override
     public int updateNotifyTaskStatusRetry(String teamId) {
         return notifyTaskDao.updateNotifyTaskStatusRetry(teamId);
+    }
+
+    private int lockTeamOccupancyByLua(String teamId, Long activityId, String outTradeNo, int initLockCount, int targetCount) {
+        String lockScript = readScript(LUA_LOCK_OCCUPANCY);
+        String teamLockKey = buildTeamLockKey(teamId, activityId);
+        String teamIdempotentKey = buildTeamIdempotentKey(teamId, activityId);
+        Long luaResult = redisService.eval(
+                lockScript,
+                RScript.ReturnType.INTEGER,
+                Arrays.asList(teamLockKey, teamIdempotentKey),
+                outTradeNo,
+                targetCount,
+                dccService.getTradeLockLuaTtlSeconds(),
+                initLockCount
+        );
+        return null == luaResult ? 2 : luaResult.intValue();
+    }
+
+    private void releaseTeamOccupancyByLua(String teamId, Long activityId, String outTradeNo) {
+        String releaseScript = readScript(LUA_RELEASE_OCCUPANCY);
+        redisService.eval(
+                releaseScript,
+                RScript.ReturnType.INTEGER,
+                Arrays.asList(buildTeamLockKey(teamId, activityId), buildTeamIdempotentKey(teamId, activityId)),
+                outTradeNo
+        );
+    }
+
+    private String buildTeamLockKey(String teamId, Long activityId) {
+        return dccService.getTradeLockLuaKeyPrefix() + Constants.UNDERLINE + "team" + Constants.UNDERLINE + activityId + Constants.UNDERLINE + teamId;
+    }
+
+    private String buildTeamIdempotentKey(String teamId, Long activityId) {
+        return dccService.getTradeLockLuaKeyPrefix() + Constants.UNDERLINE + "idempotent" + Constants.UNDERLINE + activityId + Constants.UNDERLINE + teamId;
+    }
+
+    private void resetTeamOccupancyCache(String teamId, Long activityId) {
+        redisService.remove(buildTeamLockKey(teamId, activityId));
+        redisService.remove(buildTeamIdempotentKey(teamId, activityId));
+    }
+
+    private String readScript(String path) {
+        ClassPathResource resource = new ClassPathResource(path);
+        try {
+            return StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new AppException(ResponseCode.UN_ERROR.getCode(), "Lua script load failed: " + path);
+        }
+    }
+
+    private String generateUniqueTeamId() {
+        // team_id column is length-limited in DB; keep 8-digit id and retry for uniqueness.
+        for (int i = 0; i < 20; i++) {
+            String candidate = RandomStringUtils.randomNumeric(8);
+            GroupBuyOrder existed = groupBuyOrderDao.queryGroupBuyTeamByTeamId(candidate);
+            if (null == existed) {
+                return candidate;
+            }
+        }
+        throw new AppException(ResponseCode.UN_ERROR.getCode(), "生成拼团编号失败，请稍后重试");
     }
 
 }

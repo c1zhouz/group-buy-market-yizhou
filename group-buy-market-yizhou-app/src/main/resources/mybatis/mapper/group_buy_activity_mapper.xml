@@ -51,4 +51,60 @@
         where activity_id = #{activityId}
     </select>
 
+    <insert id="insertGroupBuyActivity" parameterType="cn.bugstack.infrastructure.dao.po.GroupBuyActivity">
+        insert into group_buy_activity(
+            activity_id, activity_name, discount_id, group_type, take_limit_count,
+            target, valid_time, status, start_time, end_time, tag_id, tag_scope, create_time, update_time
+        ) values (
+            #{activityId}, #{activityName}, #{discountId}, #{groupType}, #{takeLimitCount},
+            #{target}, #{validTime}, #{status}, #{startTime}, #{endTime}, #{tagId}, #{tagScope}, now(), now()
+        )
+    </insert>
+
+    <select id="queryGroupBuyActivityStatusByActivityId" parameterType="java.lang.Long" resultType="java.lang.Integer">
+        select status from group_buy_activity where activity_id = #{activityId}
+    </select>
+
+    <update id="updateActivityStatusByActivityId">
+        update group_buy_activity
+        set status = #{toStatus},
+            update_time = now()
+        where activity_id = #{activityId}
+          and status = #{fromStatus}
+    </update>
+
+    <update id="updateActivityNameByActivityId">
+        update group_buy_activity
+        set activity_name = #{activityName},
+            update_time = now()
+        where activity_id = #{activityId}
+    </update>
+
+    <update id="updateGroupBuyActivityByActivityId" parameterType="cn.bugstack.infrastructure.dao.po.GroupBuyActivity">
+        update group_buy_activity
+        set activity_name = #{activityName},
+            discount_id = #{discountId},
+            group_type = #{groupType},
+            take_limit_count = #{takeLimitCount},
+            target = #{target},
+            valid_time = #{validTime},
+            status = #{status},
+            start_time = #{startTime},
+            end_time = #{endTime},
+            tag_id = #{tagId},
+            tag_scope = #{tagScope},
+            update_time = now()
+        where activity_id = #{activityId}
+    </update>
+
+    <select id="queryActivityIdsByDiscountId" resultType="java.lang.Long">
+        select activity_id
+        from group_buy_activity
+        where discount_id = #{discountId}
+    </select>
+
+    <delete id="deleteGroupBuyActivityByActivityId" parameterType="java.lang.Long">
+        delete from group_buy_activity where activity_id = #{activityId}
+    </delete>
+
 </mapper>

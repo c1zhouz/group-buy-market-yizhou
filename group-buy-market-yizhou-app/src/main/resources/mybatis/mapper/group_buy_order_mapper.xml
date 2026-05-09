@@ -38,7 +38,17 @@
         <![CDATA[
         update group_buy_order
         set lock_count = lock_count + 1, update_time= now()
-        where team_id = #{teamId} and lock_count < target_count
+        where id = (
+            select latest_id
+            from (
+                select max(id) as latest_id
+                from group_buy_order
+                where team_id = #{teamId}
+                  and status = 0
+                  and valid_end_time > now()
+                  and lock_count < target_count
+            ) t
+        )
         ]]>
     </update>
 
@@ -46,20 +56,76 @@
         <![CDATA[
         update group_buy_order
         set complete_count = complete_count + 1, update_time= now()
-        where team_id = #{teamId} and complete_count < target_count
+        where id = (
+            select latest_id
+            from (
+                select max(id) as latest_id
+                from group_buy_order
+                where team_id = #{teamId}
+                  and status = 0
+                  and complete_count < target_count
+            ) t
+        )
         ]]>
     </update>
 
     <update id="updateSubtractionLockCount" parameterType="java.lang.String">
         update group_buy_order
         set lock_count = lock_count - 1, update_time= now()
-        where team_id = #{teamId} and lock_count > 0
+        where id = (
+            select latest_id
+            from (
+                select max(id) as latest_id
+                from group_buy_order
+                where team_id = #{teamId}
+                  and lock_count > 0
+            ) t
+        )
+    </update>
+
+    <update id="updateOrderStatus2CLOSEIfEmpty" parameterType="java.lang.String">
+        update group_buy_order
+        set status = 2,
+            update_time = now()
+        where id = (
+            select latest_id
+            from (
+                select max(id) as latest_id
+                from group_buy_order
+                where team_id = #{teamId}
+                  and status = 0
+                  and lock_count = 0
+                  and complete_count = 0
+            ) t
+        )
     </update>
 
     <update id="updateOrderStatus2COMPLETE" parameterType="java.lang.String">
         update group_buy_order
         set status = 1, update_time= now()
-        where team_id = #{teamId} and status = 0
+        where id = (
+            select latest_id
+            from (
+                select max(id) as latest_id
+                from group_buy_order
+                where team_id = #{teamId}
+                  and status = 0
+            ) t
+        )
+    </update>
+
+    <update id="closeInProgressTeamByActivityIdGoodsId">
+        update group_buy_order
+        set status = 2,
+            update_time = now()
+        where activity_id = #{activityId}
+          and status = 0
+          and team_id in (
+            select distinct team_id
+            from group_buy_order_list
+            where activity_id = #{activityId}
+              and goods_id = #{goodsId}
+        )
     </update>
 
     <select id="queryGroupBuyProgress" parameterType="java.lang.String" resultMap="dataMap">
@@ -70,17 +136,28 @@
     <select id="queryGroupBuyTeamByTeamId" parameterType="java.lang.String" resultMap="dataMap">
         select team_id, activity_id, target_count, complete_count, lock_count, status, valid_start_time, valid_end_time,
                notify_url
-        from group_buy_order where team_id = #{teamId}
+        from group_buy_order
+        where team_id = #{teamId}
+        order by id desc
+        limit 1
     </select>
 
     <select id="queryGroupBuyProgressByTeamIds" parameterType="java.util.Set" resultMap="dataMap">
-        select team_id, activity_id, target_count, complete_count, lock_count, status, valid_start_time, valid_end_time,
-        notify_url
-        from group_buy_order
-        where status = 0 and target_count > lock_count and team_id in
-        <foreach item="teamId" collection="teamIds" open="(" separator="," close=")">
-            #{teamId}
-        </foreach>
+        select g.team_id, g.activity_id, g.target_count, g.complete_count, g.lock_count, g.status, g.valid_start_time, g.valid_end_time,
+               g.notify_url
+        from group_buy_order g
+                 inner join (
+            select team_id, max(id) as latest_id
+            from group_buy_order
+            where team_id in
+            <foreach item="teamId" collection="teamIds" open="(" separator="," close=")">
+                #{teamId}
+            </foreach>
+            group by team_id
+        ) latest on g.id = latest.latest_id
+        where g.status = 0
+          and g.valid_end_time > now()
+          and g.target_count > g.lock_count
     </select>
 
     <select id="queryAllTeamCount" parameterType="java.util.Set" resultType="java.lang.Integer">

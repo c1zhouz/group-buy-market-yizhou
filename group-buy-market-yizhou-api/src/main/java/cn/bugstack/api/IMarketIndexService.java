@@ -2,12 +2,20 @@ package cn.bugstack.api;
 
 import cn.bugstack.api.dto.GoodsMarketRequestDTO;
 import cn.bugstack.api.dto.GoodsMarketResponseDTO;
+import cn.bugstack.api.dto.MarketProductListResponseDTO;
 import cn.bugstack.api.response.Response;
 
 /**
  * @description 营销首页服务接口
  */
 public interface IMarketIndexService {
+
+    /**
+     * 查询首页商品列表
+     *
+     * @return 首页商品列表
+     */
+    Response<MarketProductListResponseDTO> queryMarketProductList();
 
     /**
      * 查询拼团营销配置

@@ -6,6 +6,7 @@ import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -163,6 +164,8 @@ public interface IRedisService {
      */
     String getFromList(String key, int index);
 
+    String pollFromList(String key);
+
     /**
      * 获取Map
      *
@@ -271,6 +274,11 @@ public interface IRedisService {
     Boolean setNx(String key, long expired, TimeUnit timeUnit);
 
     RBitSet getBitSet(String key);
+
+    /**
+     * 执行 Lua 脚本（原子操作）
+     */
+    <T> T eval(String script, RScript.ReturnType returnType, List<Object> keys, Object... values);
 
     default int getIndexFromUserId(String userId) {
         try {

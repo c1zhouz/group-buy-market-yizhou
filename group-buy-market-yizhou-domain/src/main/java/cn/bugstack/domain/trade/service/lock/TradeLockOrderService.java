@@ -31,6 +31,12 @@ public class TradeLockOrderService implements ITradeLockOrderService {
     }
 
     @Override
+    public MarketPayOrderEntity queryNoPayMarketPayOrder(String userId, Long activityId, String goodsId) {
+        log.info("拼团交易-查询未支付营销订单:{} activityId:{} goodsId:{}", userId, activityId, goodsId);
+        return repository.queryNoPayMarketPayOrder(userId, activityId, goodsId);
+    }
+
+    @Override
     public GroupBuyProgressVO queryGroupBuyProgress(String teamId) {
         log.info("拼团交易-查询拼单进度:{}", teamId);
         return repository.queryGroupBuyProgress(teamId);
@@ -43,6 +49,7 @@ public class TradeLockOrderService implements ITradeLockOrderService {
         TradeLockRuleFilterBackEntity tradeLockRuleFilterBackEntity = tradeRuleFilter.apply(TradeLockRuleCommandEntity.builder()
                         .activityId(payActivityEntity.getActivityId())
                         .userId(userEntity.getUserId())
+                        .goodsId(payDiscountEntity.getGoodsId())
                         .build(),
                 new TradeLockRuleFilterFactory.DynamicContext());
 
@@ -59,6 +66,12 @@ public class TradeLockOrderService implements ITradeLockOrderService {
 
         // 锁定聚合订单 - 这会用户只是下单还没有支付。后续会有2个流程；支付成功、超时未支付（回退）
         return repository.lockMarketPayOrder(groupBuyOrderAggregate);
+    }
+
+    @Override
+    public boolean cancelNoPayMarketPayOrder(String userId, String outTradeNo) {
+        log.info("拼团交易-取消未支付营销订单:{} outTradeNo:{}", userId, outTradeNo);
+        return repository.cancelNoPayMarketPayOrder(userId, outTradeNo);
     }
 
 }

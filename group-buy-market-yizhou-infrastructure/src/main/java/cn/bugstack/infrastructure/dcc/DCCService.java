@@ -2,10 +2,8 @@ package cn.bugstack.infrastructure.dcc;
 
 import cn.bugstack.types.annotations.DCCValue;
 import cn.bugstack.types.common.Constants;
-import lombok.Data;
 import org.springframework.stereotype.Service;
 
-import java.sql.Array;
 import java.util.Arrays;
 import java.util.List;
 
@@ -26,6 +24,24 @@ public class DCCService {
 
     @DCCValue("scBlacklist:s02c02")
     private String scBlacklist;
+
+    @DCCValue("tradeLockLuaSwitch:1")
+    private String tradeLockLuaSwitch;
+
+    @DCCValue("tradeLockLuaTtlSeconds:1800")
+    private String tradeLockLuaTtlSeconds;
+
+    @DCCValue("tradeLockLuaKeyPrefix:group_buy_market_lock")
+    private String tradeLockLuaKeyPrefix;
+
+    @DCCValue("notifyHttpSwitch:1")
+    private String notifyHttpSwitch;
+
+    @DCCValue("notifyMqSwitch:1")
+    private String notifyMqSwitch;
+
+    @DCCValue("notifyMqConsumeBatchSize:20")
+    private String notifyMqConsumeBatchSize;
 
     public boolean isDowngradeSwitch() {
         return "1".equals(downgradeSwitch);
@@ -52,6 +68,30 @@ public class DCCService {
     public boolean isSCBlackIntercept(String source, String channel) {
         List<String> list = Arrays.asList(scBlacklist.split(Constants.SPLIT));
         return list.contains(source + channel);
+    }
+
+    public boolean isTradeLockLuaSwitch() {
+        return "1".equals(tradeLockLuaSwitch);
+    }
+
+    public long getTradeLockLuaTtlSeconds() {
+        return Long.parseLong(tradeLockLuaTtlSeconds);
+    }
+
+    public String getTradeLockLuaKeyPrefix() {
+        return tradeLockLuaKeyPrefix;
+    }
+
+    public boolean isNotifyHttpSwitch() {
+        return "1".equals(notifyHttpSwitch);
+    }
+
+    public boolean isNotifyMqSwitch() {
+        return "1".equals(notifyMqSwitch);
+    }
+
+    public int getNotifyMqConsumeBatchSize() {
+        return Integer.parseInt(notifyMqConsumeBatchSize);
     }
 
 }

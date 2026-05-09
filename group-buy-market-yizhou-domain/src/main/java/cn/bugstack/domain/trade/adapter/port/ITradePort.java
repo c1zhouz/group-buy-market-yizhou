@@ -9,4 +9,6 @@ public interface ITradePort {
 
     String groupBuyNotify(NotifyTaskEntity notifyTask) throws Exception;
 
+    int consumeGroupBuyNotifyQueue(int batchSize) throws Exception;
+
 }

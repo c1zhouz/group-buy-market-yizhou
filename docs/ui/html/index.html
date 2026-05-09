@@ -1,92 +1,100 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>小傅哥 - 拼团项目 - 商品详情页</title>
-    <link rel="stylesheet" href="css/index.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UG-GroupBuy 商城</title>
+  <link rel="stylesheet" href="css/index.css?v=20260410team6">
 </head>
 <body>
-<!-- 轮播图 -->
-<div class="swiper-container">
-    <div class="swiper-wrapper">
-        <div class="swiper-slide"><img src="./images/sku-13811216-01.png"></div>
-        <div class="swiper-slide"><img src="./images/sku-13811216-02.png"></div>
-        <div class="swiper-slide"><img src="./images/sku-13811216-03.png"></div>
+<div class="page">
+  <header class="topbar">
+    <div>
+      <h1>UG-GroupBuy 商城</h1>
+      <p>数码好物精选，支持单买与拼团</p>
     </div>
-    <div class="swiper-pagination"></div>
-</div>
+    <a class="ops-link" href="admin.html">后台管理</a>
+  </header>
 
-<!-- 商品信息 -->
-<div class="product-info">
-    <h1 class="product-title">手写MyBatis：渐进式源码实践（全彩）</h1>
-    <span class="promotion-tag">大促优惠</span>
-    <span class="promotion-text">直降 ¥60，76人再抢，参与马上抢到</span>
-</div>
-
-<!-- 修改后的拼单列表结构 -->
-<div class="group-list">
-    <div class="group-item">
+  <main class="mall-layout">
+    <section class="card catalog-panel">
+      <div class="section-head section-head-wrap">
         <div>
-            <div class="user-info">小傅哥</div>
-            <div class="group-status">
-                <span>组队仅剩1人，拼单即将结束</span>
-                <span class="countdown">00:05:49</span>
-            </div>
+          <h2>商品列表</h2>
+          <span id="productCount">共 0 件</span>
         </div>
-        <div class="right">
-            <button class="group-btn" data-price="40">参与拼团</button>
+        <div class="catalog-tools">
+          <label class="visually-hidden" for="productSearchInput">搜索商品</label>
+          <input id="productSearchInput" class="search-input" type="text" placeholder="搜索商品名称，例如 iPhone / MateBook">
         </div>
+      </div>
+
+      <div id="categoryFilter" class="category-filter"></div>
+      <div id="productList" class="product-list"></div>
+    </section>
+
+    <section class="trade-layout">
+      <section class="card detail-panel">
+        <div class="section-head">
+          <h2>商品详情</h2>
+          <span>当前选中商品</span>
+        </div>
+        <div class="product-meta">
+          <h3 id="productTitle">-</h3>
+          <p id="productSubtitle" class="product-subtitle">-</p>
+
+          <div class="promo-row">
+            <span class="promo-tag">优惠信息</span>
+            <span id="promotionText" class="promo-text">加载中...</span>
+          </div>
+
+          <div class="price-row">
+            <span id="originPrice" class="origin-price">￥0</span>
+            <span id="groupPrice" class="group-price">￥0</span>
+          </div>
+          <div class="price-extra">
+            <span id="saveAmount" class="save-amount">立省 ￥0</span>
+            <span id="couponTag" class="coupon-tag">券后价</span>
+          </div>
+          <div class="product-actions">
+            <button id="buyAloneBtn" class="action-btn light">单独购买(￥0)</button>
+            <button id="groupBuyBtn" class="action-btn primary">开团购买(￥0)</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card team-panel">
+        <div class="section-head">
+          <h2>可参与团队</h2>
+          <span>点击快速参团</span>
+        </div>
+        <div class="group-table-head">
+          <span>团队</span>
+          <span>还差人数</span>
+          <span>倒计时</span>
+          <span>操作</span>
+        </div>
+        <div id="groupListContainer" class="group-list"></div>
+      </section>
+    </section>
+  </main>
+
+  <div id="paymentModal" class="modal">
+    <div class="modal-card">
+      <h3>请扫码支付</h3>
+      <p id="paymentProductName" class="payment-product-name"></p>
+      <p id="paymentAmount" class="payment-amount"></p>
+      <div class="qr-code-placeholder">模拟支付环境（无二维码图片）</div>
+      <p id="outTradeNo" class="trade-no"></p>
+      <div class="modal-actions">
+        <button id="cancelPayment" class="modal-btn light">取消支付</button>
+        <button id="completePayment" class="modal-btn primary">支付完成</button>
+      </div>
     </div>
-    <div class="group-item">
-        <div>
-            <div class="user-info">李二狗</div>
-            <div class="group-status">
-                <span>组队仅剩2人，拼单即将结束</span>
-                <span class="countdown">00:05:49</span>
-            </div>
-        </div>
-        <div class="right">
-            <button class="group-btn" data-price="40">参与拼团</button>
-        </div>
-    </div>
-    <div class="group-item">
-        <div>
-            <div class="user-info">张冰嘎</div>
-            <div class="group-status">
-                <span>组队仅剩1人，拼单即将结束</span>
-                <span class="countdown">00:05:49</span>
-            </div>
-        </div>
-        <div class="right">
-            <button class="group-btn" data-price="40">参与拼团</button>
-        </div>
-    </div>
+  </div>
+
 </div>
 
-<!-- 空白区域 -->
-<div class="area"></div>
-
-<!-- 底部操作栏 -->
-<div class="action-bar">
-    <button class="action-btn buy-alone" data-price="100">单独购买(￥100)</button>
-    <button class="action-btn group-buy" data-price="40">开团购买(￥40)</button>
-</div>
-
-<!-- 支付弹窗 -->
-<div id="paymentModal" class="modal">
-    <div class="modal-content">
-        <h2>请扫码支付</h2>
-        <p id="paymentAmount"></p>
-        <img src="./images/sku-13811216-04.png" alt="支付二维码" class="qr-code">
-        <div class="button-group">
-            <button id="cancelPayment">取消支付</button>
-            <button id="completePayment">支付完成</button>
-        </div>
-    </div>
-</div>
-
-<script src="js/index.js"></script>
+<script src="js/index.js?v=20260410ui8"></script>
 </body>
 </html>
-

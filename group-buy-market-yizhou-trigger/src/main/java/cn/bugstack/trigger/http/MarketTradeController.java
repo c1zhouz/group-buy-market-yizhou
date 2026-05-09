@@ -53,14 +53,13 @@ public class MarketTradeController implements IMarketTradeService {
             String source = requestDTO.getSource();
             String channel = requestDTO.getChannel();
             String goodsId = requestDTO.getGoodsId();
-            Long activityId = requestDTO.getActivityId();
             String outTradeNo = requestDTO.getOutTradeNo();
             String teamId = requestDTO.getTeamId();
             String notifyUrl = requestDTO.getNotifyUrl();
 
             log.info("营销交易锁单:{} LockMarketPayOrderRequestDTO:{}", userId, JSON.toJSONString(requestDTO));
 
-            if (StringUtils.isBlank(userId) || StringUtils.isBlank(source) || StringUtils.isBlank(channel) || StringUtils.isBlank(goodsId) || null == activityId || StringUtils.isBlank(notifyUrl)) {
+            if (StringUtils.isBlank(userId) || StringUtils.isBlank(source) || StringUtils.isBlank(channel) || StringUtils.isBlank(goodsId) || StringUtils.isBlank(notifyUrl)) {
                 return Response.<LockMarketPayOrderResponseDTO>builder()
                         .code(ResponseCode.ILLEGAL_PARAMETER.getCode())
                         .info(ResponseCode.ILLEGAL_PARAMETER.getInfo())
@@ -102,8 +101,18 @@ public class MarketTradeController implements IMarketTradeService {
                     .source(source)
                     .channel(channel)
                     .goodsId(goodsId)
-                    .activityId(activityId)
                     .build());
+
+            GroupBuyActivityDiscountVO groupBuyActivityDiscountVO = trialBalanceEntity.getGroupBuyActivityDiscountVO();
+            Long activityId = groupBuyActivityDiscountVO.getActivityId();
+
+            MarketPayOrderEntity noPayMarketPayOrder = tradeOrderService.queryNoPayMarketPayOrder(userId, activityId, goodsId);
+            if (null != noPayMarketPayOrder) {
+                return Response.<LockMarketPayOrderResponseDTO>builder()
+                        .code(ResponseCode.E0107.getCode())
+                        .info(ResponseCode.E0107.getInfo())
+                        .build();
+            }
 
             // 人群限定
             if (!trialBalanceEntity.getIsVisible() || !trialBalanceEntity.getIsEnable()) {
@@ -113,7 +122,6 @@ public class MarketTradeController implements IMarketTradeService {
                         .build();
             }
 
-            GroupBuyActivityDiscountVO groupBuyActivityDiscountVO = trialBalanceEntity.getGroupBuyActivityDiscountVO();
 
             // 营销优惠锁单
             marketPayOrderEntity = tradeOrderService.lockMarketPayOrder(
@@ -214,6 +222,40 @@ public class MarketTradeController implements IMarketTradeService {
         }catch (Exception e) {
             log.error("营销交易组队结算失败:{} LockMarketPayOrderRequestDTO:{}", requestDTO.getUserId(), JSON.toJSONString(requestDTO), e);
             return Response.<SettlementMarketPayOrderResponseDTO>builder()
+                    .code(ResponseCode.UN_ERROR.getCode())
+                    .info(ResponseCode.UN_ERROR.getInfo())
+                    .build();
+        }
+    }
+
+    @RequestMapping(value = "cancel_market_pay_order", method = RequestMethod.POST)
+    @Override
+    public Response<CancelMarketPayOrderResponseDTO> cancelMarketPayOrder(@RequestBody CancelMarketPayOrderRequestDTO requestDTO) {
+        try {
+            log.info("营销交易取消未支付订单:{} CancelMarketPayOrderRequestDTO:{}", requestDTO.getUserId(), JSON.toJSONString(requestDTO));
+
+            if (StringUtils.isBlank(requestDTO.getUserId()) || StringUtils.isBlank(requestDTO.getOutTradeNo())) {
+                return Response.<CancelMarketPayOrderResponseDTO>builder()
+                        .code(ResponseCode.ILLEGAL_PARAMETER.getCode())
+                        .info(ResponseCode.ILLEGAL_PARAMETER.getInfo())
+                        .build();
+            }
+
+            boolean canceled = tradeOrderService.cancelNoPayMarketPayOrder(requestDTO.getUserId(), requestDTO.getOutTradeNo());
+            return Response.<CancelMarketPayOrderResponseDTO>builder()
+                    .code(ResponseCode.SUCCESS.getCode())
+                    .info(ResponseCode.SUCCESS.getInfo())
+                    .data(CancelMarketPayOrderResponseDTO.builder().canceled(canceled).build())
+                    .build();
+        } catch (AppException e) {
+            log.error("营销交易取消未支付订单异常:{} CancelMarketPayOrderRequestDTO:{}", requestDTO.getUserId(), JSON.toJSONString(requestDTO), e);
+            return Response.<CancelMarketPayOrderResponseDTO>builder()
+                    .code(e.getCode())
+                    .info(e.getInfo())
+                    .build();
+        } catch (Exception e) {
+            log.error("营销交易取消未支付订单失败:{} CancelMarketPayOrderRequestDTO:{}", requestDTO.getUserId(), JSON.toJSONString(requestDTO), e);
+            return Response.<CancelMarketPayOrderResponseDTO>builder()
                     .code(ResponseCode.UN_ERROR.getCode())
                     .info(ResponseCode.UN_ERROR.getInfo())
                     .build();

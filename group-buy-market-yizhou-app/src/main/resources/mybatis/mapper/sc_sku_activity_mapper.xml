@@ -18,4 +18,24 @@
         where goods_id = #{goodsId} and source = #{source} and channel = #{channel}
     </select>
 
+    <insert id="insertSCSkuActivity" parameterType="cn.bugstack.infrastructure.dao.po.SCSkuActivity">
+        insert ignore into sc_sku_activity(source, channel, activity_id, goods_id, create_time, update_time)
+        values(#{source}, #{channel}, #{activityId}, #{goodsId}, now(), now())
+    </insert>
+
+    <delete id="deleteSCSkuActivityByGoodsId">
+        delete from sc_sku_activity
+        where source = #{source} and channel = #{channel} and goods_id = #{goodsId}
+    </delete>
+
+    <delete id="deleteSCSkuActivityByActivityId">
+        delete from sc_sku_activity
+        where activity_id = #{activityId}
+    </delete>
+
+    <delete id="deleteSCSkuActivityBySourceChannel">
+        delete from sc_sku_activity
+        where source = #{source} and channel = #{channel}
+    </delete>
+
 </mapper>

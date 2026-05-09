@@ -54,6 +54,8 @@ public class GoodsMarketResponseDTO {
     public static class Team {
         // 用户ID
         private String userId;
+        // 团队成员（包含团长）
+        private List<String> memberUserIds;
         // 拼单组队ID
         private String teamId;
         // 活动ID

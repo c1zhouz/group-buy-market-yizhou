@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UG-GroupBuy 后台管理系统</title>
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/admin.css?v=20260409btn1">
+</head>
+<body>
+<div class="admin-layout">
+  <aside class="sidebar">
+    <h1>后台管理</h1>
+    <nav id="adminNav" class="nav-list">
+      <button class="nav-item active" data-module="products">商品管理</button>
+      <button class="nav-item" data-module="orders">订单管理</button>
+      <button class="nav-item" data-module="marketing">营销管理</button>
+      <button class="nav-item" data-module="users">用户管理</button>
+    </nav>
+    <a class="back-link" href="index.html">返回商城</a>
+  </aside>
+
+  <main class="content">
+    <header class="content-header">
+      <div>
+        <h2 id="moduleTitle">商品管理</h2>
+        <span id="moduleHint">管理商品上下架、库存与价格</span>
+      </div>
+      <div class="header-user">
+        <span id="currentUser">当前用户：-</span>
+        <button id="logoutBtn" class="btn btn-light" type="button">退出登录</button>
+      </div>
+    </header>
+
+    <div id="globalErrorBar" class="global-error-bar" style="display:none;">
+      <span id="globalErrorText"></span>
+      <button id="globalErrorClose" class="global-error-close" type="button">关闭</button>
+    </div>
+
+    <section id="moduleActionBar" class="module-action-bar"></section>
+
+    <section id="moduleContent" class="module-content"></section>
+  </main>
+</div>
+
+<div id="adminModal" class="admin-modal">
+  <div class="admin-modal-card">
+    <div class="admin-modal-head">
+      <h3 id="adminModalTitle">操作</h3>
+      <button id="adminModalClose" class="icon-btn" type="button">×</button>
+    </div>
+    <div id="adminModalBody"></div>
+  </div>
+</div>
+
+<script src="js/admin.js?v=20260409mktreopen1"></script>
+</body>
+</html>
+

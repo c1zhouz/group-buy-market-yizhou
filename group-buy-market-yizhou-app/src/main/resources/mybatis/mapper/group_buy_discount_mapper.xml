@@ -25,4 +25,23 @@
         where discount_id = #{discountId}
     </select>
 
+    <select id="queryDiscountIdsByMarketPlanExpr" resultType="java.lang.String">
+        select discount_id
+        from group_buy_discount
+        where market_plan = #{marketPlan}
+          and market_expr = #{marketExpr}
+    </select>
+
+    <insert id="insertGroupBuyDiscount" parameterType="cn.bugstack.infrastructure.dao.po.GroupBuyDiscount">
+        insert into group_buy_discount(
+            discount_id, discount_name, discount_desc, discount_type, market_plan, market_expr, tag_id, create_time, update_time
+        ) values (
+            #{discountId}, #{discountName}, #{discountDesc}, #{discountType}, #{marketPlan}, #{marketExpr}, #{tagId}, now(), now()
+        )
+    </insert>
+
+    <delete id="deleteGroupBuyDiscountByDiscountId" parameterType="java.lang.String">
+        delete from group_buy_discount where discount_id = #{discountId}
+    </delete>
+
 </mapper>

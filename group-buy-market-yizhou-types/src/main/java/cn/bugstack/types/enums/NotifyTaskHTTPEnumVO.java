@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 public enum NotifyTaskHTTPEnumVO {
 
     SUCCESS("success", "成功"),
+    QUEUED("queued", "已入队"),
     ERROR("error", "失败"),
     NULL(null, "空执行"),
     ;

@@ -19,4 +19,32 @@
         where goods_id = #{goodsId}
     </select>
 
+    <select id="querySkuList" resultMap="dataMap">
+        select source, channel, goods_id, goods_name, original_price
+        from sku
+        order by id desc
+        limit 100
+    </select>
+
+    <insert id="insertSku" parameterType="cn.bugstack.infrastructure.dao.po.Sku">
+        insert into sku(source, channel, goods_id, goods_name, original_price, create_time, update_time)
+        values(#{source}, #{channel}, #{goodsId}, #{goodsName}, #{originalPrice}, now(), now())
+    </insert>
+
+    <update id="updateSkuByGoodsId" parameterType="cn.bugstack.infrastructure.dao.po.Sku">
+        update sku
+        set goods_name = #{goodsName},
+            original_price = #{originalPrice},
+            update_time = now()
+        where goods_id = #{goodsId}
+    </update>
+
+    <delete id="deleteSkuByGoodsId" parameterType="java.lang.String">
+        delete from sku where goods_id = #{goodsId}
+    </delete>
+
+    <delete id="deleteSkuBySourceChannel">
+        delete from sku where source = #{source} and channel = #{channel}
+    </delete>
+
 </mapper>

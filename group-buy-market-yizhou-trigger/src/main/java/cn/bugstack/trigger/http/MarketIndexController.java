@@ -3,7 +3,9 @@ package cn.bugstack.trigger.http;
 import cn.bugstack.api.IMarketIndexService;
 import cn.bugstack.api.dto.GoodsMarketRequestDTO;
 import cn.bugstack.api.dto.GoodsMarketResponseDTO;
+import cn.bugstack.api.dto.MarketProductListResponseDTO;
 import cn.bugstack.api.response.Response;
+import cn.bugstack.domain.activity.model.entity.MarketProductItemEntity;
 import cn.bugstack.domain.activity.model.entity.MarketProductEntity;
 import cn.bugstack.domain.activity.model.entity.TrialBalanceEntity;
 import cn.bugstack.domain.activity.model.entity.UserGroupBuyOrderDetailEntity;
@@ -30,8 +32,46 @@ import java.util.List;
 @RequestMapping("/api/v1/gbm/index/")
 public class MarketIndexController implements IMarketIndexService {
 
+    private static final String DEFAULT_SOURCE = "s01";
+    private static final String DEFAULT_CHANNEL = "c01";
+
     @Resource
     private IIndexGroupBuyMarketService indexGroupBuyMarketService;
+
+    @GetMapping("query_market_product_list")
+    @Override
+    public Response<MarketProductListResponseDTO> queryMarketProductList() {
+        try {
+            List<MarketProductItemEntity> productList = indexGroupBuyMarketService.queryMarketProductList(DEFAULT_SOURCE, DEFAULT_CHANNEL);
+            List<MarketProductListResponseDTO.Product> responseList = new ArrayList<>();
+            if (null != productList) {
+                for (MarketProductItemEntity product : productList) {
+                    responseList.add(MarketProductListResponseDTO.Product.builder()
+                            .goodsId(product.getGoodsId())
+                            .sku(product.getGoodsId())
+                            .name(product.getGoodsName())
+                            .price(product.getOriginalPrice())
+                            .activityId(product.getActivityId())
+                            .activityType(convertActivityTypeText(product.getActivityTarget()))
+                            .build());
+                }
+            }
+
+            return Response.<MarketProductListResponseDTO>builder()
+                    .code(ResponseCode.SUCCESS.getCode())
+                    .info(ResponseCode.SUCCESS.getInfo())
+                    .data(MarketProductListResponseDTO.builder()
+                            .list(responseList)
+                            .build())
+                    .build();
+        } catch (Exception e) {
+            log.error("查询首页商品列表失败", e);
+            return Response.<MarketProductListResponseDTO>builder()
+                    .code(ResponseCode.UN_ERROR.getCode())
+                    .info(ResponseCode.UN_ERROR.getInfo())
+                    .build();
+        }
+    }
 
     @RequestMapping(value = "query_group_buy_market_config", method = RequestMethod.POST)
     @Override
@@ -59,7 +99,7 @@ public class MarketIndexController implements IMarketIndexService {
             Long activityId = groupBuyActivityDiscountVO.getActivityId();
 
             // 2. 查询拼团组队
-            List<UserGroupBuyOrderDetailEntity> userGroupBuyOrderDetailEntities = indexGroupBuyMarketService.queryInProgressUserGroupBuyOrderDetailList(activityId, requestDTO.getUserId(), 1, 2);
+            List<UserGroupBuyOrderDetailEntity> userGroupBuyOrderDetailEntities = indexGroupBuyMarketService.queryInProgressUserGroupBuyOrderDetailList(activityId, requestDTO.getGoodsId(), requestDTO.getUserId(), 1, 2);
 
             // 3. 统计拼团数据
             TeamStatisticVO teamStatisticVO = indexGroupBuyMarketService.queryTeamStatisticByActivityId(activityId);
@@ -74,9 +114,20 @@ public class MarketIndexController implements IMarketIndexService {
             List<GoodsMarketResponseDTO.Team> teams = new ArrayList<>();
             if (null != userGroupBuyOrderDetailEntities && !userGroupBuyOrderDetailEntities.isEmpty()) {
                 for (UserGroupBuyOrderDetailEntity userGroupBuyOrderDetailEntity : userGroupBuyOrderDetailEntities) {
+                    String teamId = userGroupBuyOrderDetailEntity.getTeamId();
+                    String leaderUserId = indexGroupBuyMarketService.queryTeamLeaderUserIdByTeamId(teamId);
+                    List<String> memberUserIds = indexGroupBuyMarketService.queryTeamMemberUserIdsByTeamId(teamId);
+                    if (null == memberUserIds) {
+                        memberUserIds = new ArrayList<>();
+                    }
+                    if (StringUtils.isBlank(leaderUserId)) {
+                        leaderUserId = userGroupBuyOrderDetailEntity.getUserId();
+                    }
+
                     GoodsMarketResponseDTO.Team team = GoodsMarketResponseDTO.Team.builder()
-                            .userId(userGroupBuyOrderDetailEntity.getUserId())
-                            .teamId(userGroupBuyOrderDetailEntity.getTeamId())
+                            .userId(leaderUserId)
+                            .memberUserIds(memberUserIds)
+                            .teamId(teamId)
                             .activityId(userGroupBuyOrderDetailEntity.getActivityId())
                             .targetCount(userGroupBuyOrderDetailEntity.getTargetCount())
                             .completeCount(userGroupBuyOrderDetailEntity.getCompleteCount())
@@ -116,6 +167,11 @@ public class MarketIndexController implements IMarketIndexService {
                     .info(ResponseCode.UN_ERROR.getInfo())
                     .build();
         }
+    }
+
+    private String convertActivityTypeText(Integer activityTarget) {
+        if (null == activityTarget || activityTarget <= 0) return "无活动";
+        return activityTarget + "人拼团";
     }
 
 }

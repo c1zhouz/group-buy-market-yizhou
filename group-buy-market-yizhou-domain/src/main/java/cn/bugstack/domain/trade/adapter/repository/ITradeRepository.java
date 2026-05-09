@@ -17,13 +17,17 @@ public interface ITradeRepository {
 
     MarketPayOrderEntity queryMarketPayOrderEntityByOutTradeNo(String userId, String outTradeNo);
 
+    MarketPayOrderEntity queryNoPayMarketPayOrder(String userId, Long activityId, String goodsId);
+
     MarketPayOrderEntity lockMarketPayOrder(GroupBuyOrderAggregate groupBuyOrderAggregate);
+
+    boolean cancelNoPayMarketPayOrder(String userId, String outTradeNo);
 
     GroupBuyProgressVO queryGroupBuyProgress(String teamId);
 
     GroupBuyActivityEntity queryGroupBuyActivityEntityByActivityId(Long activityId);
 
-    Integer queryOrderCountByActivityId(Long activityId, String userId);
+    Integer queryOrderCountByGoodsId(String userId, String goodsId);
 
     GroupBuyTeamEntity queryGroupBuyTeamByTeamId(String teamId);
 

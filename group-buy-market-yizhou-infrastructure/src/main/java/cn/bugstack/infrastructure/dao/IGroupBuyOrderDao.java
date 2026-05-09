@@ -20,6 +20,8 @@ public interface IGroupBuyOrderDao {
 
     int updateSubtractionLockCount(String teamId);
 
+    int updateOrderStatus2CLOSEIfEmpty(String teamId);
+
     GroupBuyOrder queryGroupBuyProgress(String teamId);
 
     GroupBuyOrder queryGroupBuyTeamByTeamId(String teamId);
@@ -27,6 +29,8 @@ public interface IGroupBuyOrderDao {
     int updateAddCompleteCount(String teamId);
 
     int updateOrderStatus2COMPLETE(String teamId);
+
+    int closeInProgressTeamByActivityIdGoodsId(@Param("activityId") Long activityId, @Param("goodsId") String goodsId);
 
     List<GroupBuyOrder> queryGroupBuyProgressByTeamIds(@Param("teamIds") Set<String> teamIds);
 

@@ -44,16 +44,61 @@
         where out_trade_no = #{outTradeNo} and user_id = #{userId} and status = 0
     </select>
 
+    <select id="queryGroupBuyOrderByOutTradeNo" resultMap="dataMap">
+        select user_id, team_id, order_id, activity_id, start_time,
+               end_time, goods_id, source, channel, original_price, deduction_price, status, out_trade_no, out_trade_time
+        from group_buy_order_list
+        where out_trade_no = #{outTradeNo} and user_id = #{userId}
+        order by id desc
+        limit 1
+    </select>
+
+    <select id="queryNoPayOrderByUserActivityGoods"
+            parameterType="cn.bugstack.infrastructure.dao.po.GroupBuyOrderList" resultMap="dataMap">
+        select user_id, team_id, order_id, activity_id, start_time,
+               end_time, goods_id, source, channel, original_price, deduction_price, status
+        from group_buy_order_list
+        where user_id = #{userId}
+          and activity_id = #{activityId}
+          and goods_id = #{goodsId}
+          and status = 0
+          and end_time > now()
+        order by id desc
+        limit 1
+    </select>
+
     <select id="queryOrderCountByActivityId" parameterType="cn.bugstack.infrastructure.dao.po.GroupBuyOrderList"
             resultType="java.lang.Integer">
         select count(id) from group_buy_order_list
         where user_id = #{userId} and activity_id = #{activityId}
     </select>
 
+    <select id="queryOrderCountByGoodsId" parameterType="cn.bugstack.infrastructure.dao.po.GroupBuyOrderList"
+            resultType="java.lang.Integer">
+        select count(id) from group_buy_order_list
+        where user_id = #{userId}
+          and goods_id = #{goodsId}
+          and status in (0, 1)
+          and end_time > now()
+    </select>
+
     <update id="updateOrderStatus2COMPLETE" parameterType="cn.bugstack.infrastructure.dao.po.GroupBuyOrderList">
         update group_buy_order_list
         set status = 1, out_trade_time = #{outTradeTime}, update_time = now()
-        where out_trade_no = #{outTradeNo} and user_id = #{userId}
+        where out_trade_no = #{outTradeNo}
+          and user_id = #{userId}
+          and status = 0
+          and end_time > now()
+    </update>
+
+    <update id="updateOrderStatus2CLOSE">
+        update group_buy_order_list
+        set status = 2,
+            end_time = now(),
+            update_time = now()
+        where out_trade_no = #{outTradeNo}
+          and user_id = #{userId}
+          and status = 0
     </update>
 
     <select id="queryGroupBuyCompleteOrderOutTradeNoListByTeamId" parameterType="java.lang.String"
@@ -61,11 +106,33 @@
         select out_trade_no from group_buy_order_list where team_id = #{teamId} and status = 1
     </select>
 
+    <select id="queryTeamLeaderUserIdByTeamId" parameterType="java.lang.String" resultType="java.lang.String">
+        select user_id
+        from group_buy_order_list
+        where team_id = #{teamId}
+          and status in (0, 1)
+        order by id asc
+        limit 1
+    </select>
+
+    <select id="queryTeamMemberUserIdsByTeamId" parameterType="java.lang.String" resultType="java.lang.String">
+        select user_id
+        from group_buy_order_list
+        where team_id = #{teamId}
+          and status in (0, 1)
+        group by user_id
+        order by min(id)
+    </select>
+
     <select id="queryInProgressUserGroupBuyOrderDetailListByUserId"
             parameterType="cn.bugstack.infrastructure.dao.po.GroupBuyOrderList" resultMap="dataMap">
         select user_id, team_id, out_trade_no
         from group_buy_order_list
-        where activity_id = #{activityId} and user_id = #{userId} and status in (0, 1) and end_time > now()
+        where activity_id = #{activityId}
+          and goods_id = #{goodsId}
+          and user_id = #{userId}
+          and status in (0, 1)
+          and end_time > now()
         order by id desc
         limit #{count}
     </select>
@@ -76,6 +143,7 @@
         from group_buy_order_list
         where
             activity_id = #{activityId} and
+            goods_id = #{goodsId} and
             team_id in (select team_id from group_buy_order where activity_id = #{activityId} and status = 0) and
             user_id != #{userId} and
             status in (0, 1)
@@ -96,5 +164,120 @@
         ) t on o.id = t.max_id
         order by o.id desc
     </select>
+
+    <select id="queryAdminOrderList" resultMap="dataMap">
+        select user_id, team_id, goods_id, source, channel, original_price, deduction_price, status, out_trade_no, out_trade_time, create_time
+        from group_buy_order_list
+        order by id desc
+        limit 200
+    </select>
+
+    <select id="queryAdminOrderListByStatus" parameterType="java.lang.Integer" resultMap="dataMap">
+        select user_id, team_id, goods_id, source, channel, original_price, deduction_price, status, out_trade_no, out_trade_time, create_time
+        from group_buy_order_list
+        where status = #{status}
+        order by id desc
+        limit 200
+    </select>
+
+    <select id="queryAdminOrderCountAll" resultType="java.lang.Integer">
+        select count(1) from group_buy_order_list
+    </select>
+
+    <select id="queryAdminOrderCountByStatus" parameterType="java.lang.Integer" resultType="java.lang.Integer">
+        select count(1) from group_buy_order_list where status = #{status}
+    </select>
+
+    <select id="queryAdminGMVByStatus" parameterType="java.lang.Integer" resultType="java.math.BigDecimal">
+        select ifnull(sum(original_price - deduction_price), 0)
+        from group_buy_order_list
+        where status = #{status}
+    </select>
+
+    <select id="queryAdminChannelStats" resultType="java.util.Map">
+        select source,
+               channel,
+               count(1)                                     as orderCount,
+               ifnull(sum(original_price - deduction_price), 0) as gmv,
+               sum(case when status = 1 then 1 else 0 end) as paidCount
+        from group_buy_order_list
+        group by source, channel
+        order by orderCount desc
+        limit 20
+    </select>
+
+    <select id="queryAdminUserList" resultType="java.util.Map">
+        select user_id                                              as userId,
+               count(1)                                             as orderCount,
+               sum(case when status = 1 then 1 else 0 end)          as paidCount,
+               ifnull(sum(original_price - deduction_price), 0)     as gmv,
+               max(ifnull(out_trade_time, create_time))             as lastOrderTime
+        from group_buy_order_list
+        <where>
+            <if test="keyword != null and keyword != ''">
+                user_id like concat('%', #{keyword}, '%')
+            </if>
+        </where>
+        group by user_id
+        order by lastOrderTime desc
+        limit #{offset}, #{pageSize}
+    </select>
+
+    <select id="queryAdminUserCount" resultType="java.lang.Integer">
+        select count(1)
+        from (
+                 select user_id
+                 from group_buy_order_list
+                 <where>
+                     <if test="keyword != null and keyword != ''">
+                         user_id like concat('%', #{keyword}, '%')
+                     </if>
+                 </where>
+                 group by user_id
+             ) t
+    </select>
+
+    <select id="queryAdminOrderListByUserId" resultMap="dataMap">
+        select user_id, team_id, goods_id, source, channel, original_price, deduction_price, status, out_trade_no, out_trade_time, create_time
+        from group_buy_order_list
+        where user_id = #{userId}
+        order by id desc
+        limit #{offset}, #{pageSize}
+    </select>
+
+    <select id="queryAdminOrderCountByUserId" resultType="java.lang.Integer">
+        select count(1) from group_buy_order_list where user_id = #{userId}
+    </select>
+
+    <delete id="deleteAdminOrderByUserIdOutTradeNo">
+        delete from group_buy_order_list
+        where user_id = #{userId}
+          and out_trade_no = #{outTradeNo}
+    </delete>
+
+    <update id="clearInProgressAbnormalByUserIdGoodsId">
+        update group_buy_order_list
+        set end_time = now(),
+            update_time = now()
+        where user_id = #{userId}
+          and goods_id = #{goodsId}
+          and status = 0
+          and end_time > now()
+    </update>
+
+    <update id="closeInProgressOrderListByActivityIdGoodsId">
+        update group_buy_order_list
+        set end_time = now(),
+            update_time = now()
+        where activity_id = #{activityId}
+          and goods_id = #{goodsId}
+          and end_time > now()
+          and team_id in (
+            select team_id
+            from group_buy_order
+            where activity_id = #{activityId}
+              and status = 0
+          )
+    </update>
 
 </mapper>

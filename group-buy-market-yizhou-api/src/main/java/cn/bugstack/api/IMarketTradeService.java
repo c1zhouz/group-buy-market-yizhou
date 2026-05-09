@@ -1,5 +1,7 @@
 package cn.bugstack.api;
 
+import cn.bugstack.api.dto.CancelMarketPayOrderRequestDTO;
+import cn.bugstack.api.dto.CancelMarketPayOrderResponseDTO;
 import cn.bugstack.api.dto.LockMarketPayOrderRequestDTO;
 import cn.bugstack.api.dto.LockMarketPayOrderResponseDTO;
 import cn.bugstack.api.dto.SettlementMarketPayOrderRequestDTO;
@@ -26,5 +28,13 @@ public interface IMarketTradeService {
      * @return 结算结果信息
      */
     Response<SettlementMarketPayOrderResponseDTO> settlementMarketPayOrder(SettlementMarketPayOrderRequestDTO requestDTO);
+
+    /**
+     * 取消未支付营销订单
+     *
+     * @param requestDTO 取消请求参数
+     * @return 取消结果
+     */
+    Response<CancelMarketPayOrderResponseDTO> cancelMarketPayOrder(CancelMarketPayOrderRequestDTO requestDTO);
 
 }

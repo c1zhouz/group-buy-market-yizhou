@@ -18,6 +18,11 @@ public interface ITradeLockOrderService {
     MarketPayOrderEntity queryNoPayMarketPayOrderByOutTradeNo(String userId, String outTradeNo);
 
     /**
+     * 查询用户在活动商品维度上的未完成拼团订单
+     */
+    MarketPayOrderEntity queryNoPayMarketPayOrder(String userId, Long activityId, String goodsId);
+
+    /**
      * 查询拼团进度
      *
      * @param teamId 拼团ID
@@ -34,5 +39,10 @@ public interface ITradeLockOrderService {
      * @return 拼团，预购订单营销实体对象
      */
     MarketPayOrderEntity lockMarketPayOrder(UserEntity userEntity, PayActivityEntity payActivityEntity, PayDiscountEntity payDiscountEntity) throws Exception;
+
+    /**
+     * 取消未支付订单，并回收拼团占位
+     */
+    boolean cancelNoPayMarketPayOrder(String userId, String outTradeNo);
 
 }

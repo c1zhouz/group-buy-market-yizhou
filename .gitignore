@@ -4,6 +4,8 @@ target/
 !**/src/test/**/target/
 
 ### IntelliJ IDEA ###
+.idea/
+.idea_backup/
 .idea/modules.xml
 .idea/jarRepositories.xml
 .idea/compiler.xml
@@ -36,3 +38,15 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### Local runtime data ###
+data/
+**/data/
+logs/
+**/logs/
+*.log
+
+### Local environment ###
+.env
+.env.*
+!.env.example

@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const loginForm = document.getElementById("loginForm")
   const errorMessage = document.getElementById("errorMessage")
+  const redirect = new URLSearchParams(window.location.search).get("redirect")
 
   loginForm.addEventListener("submit", (e) => {
     e.preventDefault()
@@ -16,8 +17,8 @@ document.addEventListener("DOMContentLoaded", () => {
     expirationDate.setDate(expirationDate.getDate() + 1)
     document.cookie = `username=${username}; expires=${expirationDate.toUTCString()}; path=/`
 
-    // 跳转到首页
-    window.location.href = "index.html"
+    // 默认跳转商城，支持通过 redirect 参数进入后台管理页
+    window.location.href = redirect || "index.html"
   })
 })
 
