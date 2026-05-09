@@ -65,6 +65,24 @@ public class AdminControllerTest {
     }
 
     @Test
+    public void deleteOrder_shouldExplainOnlyPendingOrdersCanBeCanceled() {
+        AdminController controller = new AdminController();
+        ITradeLockOrderService tradeLockOrderService = Mockito.mock(ITradeLockOrderService.class);
+        ReflectionTestUtils.setField(controller, "tradeOrderService", tradeLockOrderService);
+        Mockito.when(tradeLockOrderService.queryNoPayMarketPayOrderByOutTradeNo("u001", "otn001")).thenReturn(null);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setCookies(new Cookie("username", "admin"));
+
+        Response<Boolean> response = controller.deleteOrder(request, "otn001", "u001");
+
+        Assertions.assertEquals(ResponseCode.ILLEGAL_PARAMETER.getCode(), response.getCode());
+        Assertions.assertEquals("只能取消待支付订单，请先筛选待支付订单后操作", response.getInfo());
+        Assertions.assertEquals(Boolean.FALSE, response.getData());
+        Mockito.verify(tradeLockOrderService, Mockito.never()).cancelNoPayMarketPayOrder(Mockito.anyString(), Mockito.anyString());
+    }
+
+    @Test
     public void queryMarketingActivities_shouldNormalizeDisplayNameWithoutUpdatingDatabase() {
         AdminController controller = new AdminController();
         IGroupBuyActivityDao groupBuyActivityDao = Mockito.mock(IGroupBuyActivityDao.class);

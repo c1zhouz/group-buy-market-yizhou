@@ -286,7 +286,7 @@ public class AdminController {
             if (null == noPayOrder) {
                 return Response.<Boolean>builder()
                         .code(ResponseCode.ILLEGAL_PARAMETER.getCode())
-                        .info("订单不存在或不是待支付订单")
+                        .info("只能取消待支付订单，请先筛选待支付订单后操作")
                         .data(false)
                         .build();
             }
@@ -348,7 +348,7 @@ public class AdminController {
                     Map<String, String> fail = new HashMap<>();
                     fail.put("userId", userId);
                     fail.put("outTradeNo", outTradeNo);
-                    fail.put("reason", "订单不存在或不是待支付订单");
+                    fail.put("reason", "只能取消待支付订单，请先筛选待支付订单后操作");
                     failedItems.add(fail);
                     continue;
                 }

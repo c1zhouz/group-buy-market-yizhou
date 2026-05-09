@@ -131,12 +131,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const index = Number(e.target.dataset.index);
       const item = adminState.orders[index];
       if (!item) return;
-      if (!confirm(`确认删除订单 ${item.no} 吗？`)) return;
+      if (!isCancelableOrder(item)) {
+        showGlobalError("只能取消待支付订单，请先筛选待支付订单后操作");
+        return;
+      }
+      if (!confirm(`确认取消待支付订单 ${item.no} 吗？`)) return;
       try {
         await apiDelete(`${API_BASE}/orders/${encodeURIComponent(item.no)}?userId=${encodeURIComponent(item.user)}`);
         await safeRenderModule("orders");
       } catch (error) {
-        showGlobalError(error.message || "删除订单失败");
+        showGlobalError(error.message || "取消订单失败");
       }
       return;
     }
@@ -158,6 +162,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const index = Number(e.target.dataset.index);
       const item = adminState.orders[index];
       if (!item) return;
+      if (!isCancelableOrder(item)) {
+        e.target.checked = false;
+        adminState.orderSelectedKeys.delete(getOrderSelectionKey(item));
+        renderOrderActionBar();
+        return;
+      }
       const key = getOrderSelectionKey(item);
       if (e.target.checked) {
         adminState.orderSelectedKeys.add(key);
@@ -172,7 +182,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const checked = !!e.target.checked;
       adminState.orders.forEach((item) => {
         const key = getOrderSelectionKey(item);
-        if (checked) {
+        if (checked && isCancelableOrder(item)) {
           adminState.orderSelectedKeys.add(key);
         } else {
           adminState.orderSelectedKeys.delete(key);
@@ -190,11 +200,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.target.matches("[data-action='delete-orders-batch']")) {
       const selectedOrders = getSelectedOrdersOnCurrentPage();
       if (!selectedOrders.length) {
-        showGlobalError("请先选择要删除的订单");
+        showGlobalError("请先选择要取消的待支付订单");
         return;
       }
 
-      if (!confirm(`确认批量删除 ${selectedOrders.length} 条订单吗？`)) return;
+      if (!confirm(`确认批量取消 ${selectedOrders.length} 条待支付订单吗？`)) return;
 
       try {
         const payload = {
@@ -208,11 +218,11 @@ document.addEventListener("DOMContentLoaded", () => {
         const successCount = Number(data.successCount || 0);
         const failCount = Number(data.failCount || 0);
         if (failCount > 0) {
-          alert(`批量删除完成，成功 ${successCount} 条，失败 ${failCount} 条`);
+          alert(`批量取消完成，成功 ${successCount} 条，失败 ${failCount} 条`);
         }
         await safeRenderModule("orders");
       } catch (error) {
-        showGlobalError(error.message || "批量删除订单失败");
+        showGlobalError(error.message || "批量取消订单失败");
       }
       return;
     }
@@ -413,7 +423,7 @@ function renderOrderFilterChips() {
     <input class="chip" type="date" id="orderEndDate" value="${adminState.orderEndDate}">
     <button class="btn btn-light" id="orderDateSearchBtn">筛选</button>
     <button class="btn btn-light" id="orderDateResetBtn">重置</button>
-    <button class="btn btn-primary" data-action="delete-orders-batch" ${selectedCount > 0 ? "" : "disabled"}>批量删除(${selectedCount})</button>
+    <button class="btn btn-primary" data-action="delete-orders-batch" ${selectedCount > 0 ? "" : "disabled"}>批量取消(${selectedCount})</button>
   `;
 }
 
@@ -493,7 +503,8 @@ function renderOrders() {
   const from = adminState.orderFilteredTotal === 0 ? 0 : (currentPage - 1) * adminState.orderPageSize + 1;
   const to = Math.min(currentPage * adminState.orderPageSize, adminState.orderFilteredTotal);
   const selectedCount = getSelectedOrdersOnCurrentPage().length;
-  const allSelected = adminState.orders.length > 0 && selectedCount === adminState.orders.length;
+  const cancellableOrders = adminState.orders.filter(isCancelableOrder);
+  const allSelected = cancellableOrders.length > 0 && selectedCount === cancellableOrders.length;
   return `
     <div class="grid-cards">
       <div class="kpi"><div class="label">订单总数</div><div class="value">${summary.total || 0}</div></div>
@@ -504,7 +515,7 @@ function renderOrders() {
     <table class="table">
       <thead><tr><th><input type="checkbox" id="orderSelectAll" ${allSelected ? "checked" : ""}></th><th>订单号</th><th>用户</th><th>商品</th><th>订单类型</th><th>金额</th><th>状态</th><th>操作</th></tr></thead>
       <tbody>
-        ${adminState.orders.map((item, idx) => `<tr><td><input type="checkbox" data-action="toggle-order-select" data-index="${idx}" ${adminState.orderSelectedKeys.has(getOrderSelectionKey(item)) ? "checked" : ""}></td><td>${item.no}</td><td>${item.user}</td><td>${item.product}</td><td>${item.orderType || "拼团购买"}</td><td>${item.amount}</td><td>${item.status}</td><td><button class="btn btn-light" data-action="delete-order" data-index="${idx}">删除</button></td></tr>`).join("")}
+        ${adminState.orders.map((item, idx) => `<tr><td>${renderOrderSelectCell(item, idx)}</td><td>${item.no}</td><td>${item.user}</td><td>${item.product}</td><td>${item.orderType || "拼团购买"}</td><td>${item.amount}</td><td>${item.status}</td><td>${renderOrderActionButton(item, idx)}</td></tr>`).join("")}
       </tbody>
     </table>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:#6b7280;">
@@ -521,6 +532,19 @@ function renderOrders() {
       </div>
     </div>
   `;
+}
+
+function renderOrderSelectCell(item, idx) {
+  const disabled = isCancelableOrder(item) ? "" : "disabled";
+  const checked = isCancelableOrder(item) && adminState.orderSelectedKeys.has(getOrderSelectionKey(item)) ? "checked" : "";
+  return `<input type="checkbox" data-action="toggle-order-select" data-index="${idx}" ${checked} ${disabled}>`;
+}
+
+function renderOrderActionButton(item, idx) {
+  if (!isCancelableOrder(item)) {
+    return `<span style="color:#9ca3af;">不可取消</span>`;
+  }
+  return `<button class="btn btn-light" data-action="delete-order" data-index="${idx}">取消</button>`;
 }
 
 function renderMarketing() {
@@ -1043,8 +1067,12 @@ function getOrderSelectionKey(item) {
   return `${item.user || ""}::${item.no || ""}`;
 }
 
+function isCancelableOrder(item) {
+  return !!item && item.status === "待支付";
+}
+
 function getSelectedOrdersOnCurrentPage() {
-  return adminState.orders.filter((item) => adminState.orderSelectedKeys.has(getOrderSelectionKey(item)));
+  return adminState.orders.filter((item) => isCancelableOrder(item) && adminState.orderSelectedKeys.has(getOrderSelectionKey(item)));
 }
 
 function getCookie(name) {
